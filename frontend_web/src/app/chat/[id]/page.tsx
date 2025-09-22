@@ -1,19 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Volume2, VolumeX, Settings, RotateCcw, Phone, MessageSquare } from 'lucide-react';
 import CharacterCard from '@/components/CharacterCard';
 import ChatMessage from '@/components/ChatMessage';
 import ChatInput from '@/components/ChatInput';
-import VoiceCall from '@/components/VoiceCall';
-import VoiceChat from '@/components/VoiceChat';
 import Navigation from '@/components/Navigation';
 import { Character, ChatMessage as ChatMessageType, ChatSession } from '@/types/character';
-import { getCharacterById } from '@/data/characters';
-import { useVoice } from '@/hooks/useVoice';
-import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { apiService } from '@/services/apiService';
 import { ChatService } from '@/services/chatService';
 
 export default function ChatPage() {
@@ -24,41 +20,88 @@ export default function ChatPage() {
   const [character, setCharacter] = useState<Character | null>(null);
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId] = useState(() => `session_${Date.now()}`);
-  const [isCallActive, setIsCallActive] = useState(false);
+  const [sessionId, setSessionId] = useState<string>('');
   const [showVoiceChat, setShowVoiceChat] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  const { isRecording, isSupported: voiceSupported, startRecording, stopRecording, transcript } = useVoice();
-  const { isPlaying, speak, stop } = useTextToSpeech();
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const foundCharacter = getCharacterById(characterId);
-    if (foundCharacter) {
-      setCharacter(foundCharacter);
-      // 添加欢迎消息
-      const welcomeMessage: ChatMessageType = {
-        id: `welcome_${Date.now()}`,
-        characterId: characterId,
-        content: `你好！我是${foundCharacter.name}。${foundCharacter.description} 很高兴与你对话！`,
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages([welcomeMessage]);
-    } else {
-      router.push('/');
+    if (characterId) {
+      fetchCharacter();
     }
-  }, [characterId, router]);
-
-  useEffect(() => {
-    if (transcript) {
-      handleSendMessage(transcript);
-    }
-  }, [transcript]);
+  }, [characterId]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const fetchCharacter = async () => {
+    try {
+      setIsLoading(true);
+      const characterData = await apiService.getCharacterById(characterId);
+      setCharacter(characterData);
+      
+      // 尝试获取用户的历史会话
+      await fetchChatHistory(characterData);
+    } catch (error) {
+      console.error('获取角色信息失败:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchChatHistory = async (characterData: Character) => {
+    try {
+      // 获取用户与该角色的历史会话
+      const sessions = await apiService.getUserSessions(characterId);
+      
+      if (sessions && sessions.length > 0) {
+        // 使用最新的会话
+        const latestSession = sessions[0];
+        setSessionId(latestSession.id);
+        
+        // 获取该会话的历史消息
+        const historyMessages = await apiService.getSessionMessages(latestSession.id);
+        
+        // 转换历史消息格式
+        const formattedMessages: ChatMessageType[] = historyMessages.map((msg: any) => ({
+          id: msg.id,
+          content: msg.content,
+          isUser: msg.is_user,
+          timestamp: new Date(msg.created_at),
+          characterId: characterData.id
+        }));
+        
+        setMessages(formattedMessages);
+      } else {
+        // 没有历史会话，创建新会话并添加欢迎消息
+        const newSessionId = `session_${Date.now()}`;
+        setSessionId(newSessionId);
+        
+        const welcomeMessage: ChatMessageType = {
+          id: `welcome_${Date.now()}`,
+          content: ChatService.generateWelcomeMessage(characterData),
+          isUser: false,
+          timestamp: new Date(),
+          characterId: characterData.id
+        };
+        setMessages([welcomeMessage]);
+      }
+    } catch (error) {
+      console.error('获取聊天历史失败:', error);
+      // 如果获取历史失败，仍然显示欢迎消息
+      const newSessionId = `session_${Date.now()}`;
+      setSessionId(newSessionId);
+      
+      const welcomeMessage: ChatMessageType = {
+        id: `welcome_${Date.now()}`,
+        content: ChatService.generateWelcomeMessage(characterData),
+        isUser: false,
+        timestamp: new Date(),
+        characterId: characterData.id
+      };
+      setMessages([welcomeMessage]);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,128 +112,103 @@ export default function ChatPage() {
 
     const userMessage: ChatMessageType = {
       id: `user_${Date.now()}`,
-      characterId: characterId,
       content: content.trim(),
       isUser: true,
       timestamp: new Date(),
+      characterId: character.id
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setIsLoading(true);
 
     try {
-      // 模拟AI响应
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-      
-      const aiResponse = generateAIResponse(content, character);
+      setIsLoading(true);
+      const response = await ChatService.sendMessage(character.id, content, sessionId);
       
       const aiMessage: ChatMessageType = {
         id: `ai_${Date.now()}`,
-        characterId: characterId,
-        content: aiResponse,
+        content: response,
         isUser: false,
         timestamp: new Date(),
+        characterId: character.id
       };
 
       setMessages(prev => [...prev, aiMessage]);
-      
-      // 自动播放AI回复的语音
-      if (voiceSupported) {
-        speak(aiResponse);
-      }
     } catch (error) {
       console.error('发送消息失败:', error);
+      const errorMessage: ChatMessageType = {
+        id: `error_${Date.now()}`,
+        content: '抱歉，我暂时无法回复您的消息。请稍后再试。',
+        isUser: false,
+        timestamp: new Date(),
+        characterId: character.id
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const generateAIResponse = (userMessage: string, character: Character): string => {
-    const responses = [
-      `作为${character.name}，我想说：${userMessage}这个话题很有趣。${character.personality}，让我从我的角度来回答你。`,
-      `你提到了${userMessage}，这让我想起了我的经历。${character.background}，所以我对这个问题有独特的见解。`,
-      `关于${userMessage}，作为${character.name}，我认为这很重要。${character.personality}，让我分享一些我的想法。`,
-      `你问的${userMessage}让我深思。${character.background}，这让我对这个问题有了新的理解。`,
-      `作为${character.name}，我对${userMessage}这个话题很感兴趣。${character.personality}，让我告诉你我的看法。`
-    ];
-    
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
+  const handleVoiceInput = async (audioBlob: Blob) => {
+    if (!character) return;
 
-  const handleVoiceInput = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
+    try {
+      setIsLoading(true);
+      const response = await ChatService.sendVoiceMessage(character.id, audioBlob, sessionId);
+      
+      const aiMessage: ChatMessageType = {
+        id: `ai_${Date.now()}`,
+        content: response,
+        isUser: false,
+        timestamp: new Date(),
+        characterId: character.id
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('发送语音消息失败:', error);
+      const errorMessage: ChatMessageType = {
+        id: `error_${Date.now()}`,
+        content: '抱歉，我无法处理您的语音消息。请稍后再试。',
+        isUser: false,
+        timestamp: new Date(),
+        characterId: character.id
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
-  };
-
-  const handlePlayAudio = (audioUrl: string) => {
-    // 这里可以实现音频播放逻辑
-    console.log('播放音频:', audioUrl);
   };
 
   const handleClearChat = () => {
-    if (character) {
-      const welcomeMessage: ChatMessageType = {
-        id: `welcome_${Date.now()}`,
-        characterId: characterId,
-        content: `你好！我是${character.name}。${character.description} 很高兴与你对话！`,
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages([welcomeMessage]);
+    if (confirm('确定要清空对话记录吗？')) {
+      setMessages([]);
+      ChatService.clearChatSession(sessionId);
     }
   };
 
-  const handleStartCall = () => {
-    setIsCallActive(true);
-  };
-
-  const handleEndCall = () => {
-    setIsCallActive(false);
-  };
-
-  const handleSendVoiceMessage = async (audioBlob: Blob) => {
-    try {
-      const response = await ChatService.sendVoiceMessage(characterId, audioBlob, sessionId);
-      
-      // 播放AI语音回复
-      if (response.audioUrl) {
-        const audio = new Audio(response.audioUrl);
-        audio.play();
-      }
-      
-      // 添加文字消息到聊天记录
-      const voiceMessage: ChatMessageType = {
-        id: `voice_${Date.now()}`,
-        characterId: characterId,
-        content: response.text || '语音消息',
-        isUser: false,
-        timestamp: new Date(),
-        audioUrl: response.audioUrl
-      };
-      
-      setMessages(prev => [...prev, voiceMessage]);
-    } catch (error) {
-      console.error('发送语音消息失败:', error);
-    }
-  };
-
-  const handleReceiveVoiceMessage = (audioBlob: Blob) => {
-    // 播放收到的语音消息
-    const audioUrl = URL.createObjectURL(audioBlob);
-    const audio = new Audio(audioUrl);
-    audio.play();
-    audio.onended = () => URL.revokeObjectURL(audioUrl);
-  };
+  if (isLoading && !character) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">加载中...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!character) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">加载中...</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">角色不存在</h2>
+          <p className="text-gray-600 mb-6">您要聊天的角色可能已被删除或不存在</p>
+          <button
+            onClick={() => router.push('/')}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg"
+          >
+            返回首页
+          </button>
         </div>
       </div>
     );
@@ -212,19 +230,12 @@ export default function ChatPage() {
                 <ArrowLeft className="w-5 h-5 text-gray-600" />
               </button>
               
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden">
-                  <img
-                    src={character.avatar}
-                    alt={character.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div>
-                  <h1 className="text-lg font-semibold text-gray-900">{character.name}</h1>
-                  <p className="text-sm text-gray-500">{character.description}</p>
-                </div>
-              </div>
+              {/* <CharacterCard
+                character={character}
+                onClick={() => {}}
+                showActions={false}
+                compact={true}
+              /> */}
             </div>
             
             <div className="flex items-center gap-2">
@@ -245,152 +256,63 @@ export default function ChatPage() {
               >
                 <RotateCcw className="w-5 h-5 text-gray-600" />
               </button>
-              
-              <button
-                onClick={handleStartCall}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="语音通话"
-              >
-                <Phone className="w-5 h-5 text-gray-600" />
-              </button>
-              
-              <button
-                onClick={() => stop()}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="停止语音"
-              >
-                {isPlaying ? (
-                  <VolumeX className="w-5 h-5 text-red-500" />
-                ) : (
-                  <Volume2 className="w-5 h-5 text-gray-600" />
-                )}
-              </button>
             </div>
           </div>
         </div>
       </header>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="h-full flex flex-col">
-            
-            {/* Voice Chat Panel */}
-            {showVoiceChat && character && (
-              <div className="mb-4">
-                <VoiceChat
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <AnimatePresence>
+            {messages.map((message) => (
+              <motion.div
+                key={message.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <ChatMessage
+                  message={message}
                   character={character}
-                  onMessage={handleSendMessage}
-                  onReceiveMessage={(message) => {
-                    const aiMessage: ChatMessageType = {
-                      id: `voice_ai_${Date.now()}`,
-                      characterId: characterId,
-                      content: message,
-                      isUser: false,
-                      timestamp: new Date(),
-                    };
-                    setMessages(prev => [...prev, aiMessage]);
-                  }}
                 />
-              </div>
-            )}
-            {/* Character Info */}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          
+          {isLoading && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="py-6 border-b border-gray-200"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex justify-start mb-4"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full overflow-hidden">
-                  <img
-                    src={character.avatar}
-                    alt={character.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900">{character.name}</h2>
-                  <p className="text-gray-600 mb-2">{character.description}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {character.tags.slice(0, 4).map((tag, index) => (
-                      <span
-                        key={index}
-                        className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+              <div className="bg-gray-100 rounded-lg p-4 max-w-xs">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
               </div>
             </motion.div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto py-6 chat-scrollbar">
-              <AnimatePresence>
-                {messages.map((message) => (
-                  <ChatMessage
-                    key={message.id}
-                    message={message}
-                    characterName={character.name}
-                    characterAvatar={character.avatar}
-                    onPlayAudio={handlePlayAudio}
-                  />
-                ))}
-              </AnimatePresence>
-              
-              {isLoading && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex gap-3 mb-4"
-                >
-                  <div className="w-8 h-8 rounded-full overflow-hidden">
-                    <img
-                      src={character.avatar}
-                      alt={character.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <div className="inline-block bg-gray-100 text-gray-900 px-4 py-2 rounded-2xl">
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
+          )}
+          
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
       {/* Chat Input */}
-      <ChatInput
-        onSendMessage={handleSendMessage}
-        onVoiceInput={handleVoiceInput}
-        isVoiceEnabled={voiceSupported}
-        isRecording={isRecording}
-        isLoading={isLoading}
-      />
-
-      {/* Voice Call Modal */}
-      {character && (
-        <VoiceCall
-          characterName={character.name}
-          characterAvatar={character.avatar}
-          isCallActive={isCallActive}
-          onStartCall={handleStartCall}
-          onEndCall={handleEndCall}
-          onSendVoiceMessage={handleSendVoiceMessage}
-          onReceiveVoiceMessage={handleReceiveVoiceMessage}
-        />
-      )}
+      <div className="bg-white/80 backdrop-blur-sm border-t border-gray-200 sticky bottom-0">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <ChatInput
+            onSendMessage={handleSendMessage}
+            onVoiceInput={handleVoiceInput}
+            isVoiceEnabled={true}
+            isRecording={false}
+            isLoading={isLoading}
+          />
+        </div>
+      </div>
     </div>
   );
 }

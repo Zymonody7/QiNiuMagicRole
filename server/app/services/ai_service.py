@@ -7,13 +7,15 @@ from app.core.config import settings
 from app.core.exceptions import AIResponseError
 import openai
 import json
+import requests
+import time
 
 class AIService:
     """AI服务类"""
     
     def __init__(self):
-        self.client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-        self.model = settings.OPENAI_MODEL
+        self.api_key = settings.QINIU_API_KEY
+        self.model = settings.QINIU_MODEL
         self.max_tokens = settings.OPENAI_MAX_TOKENS
     
     async def generate_response(
@@ -26,26 +28,36 @@ class AIService:
         try:
             # 获取角色信息
             character_info = await self._get_character_info(character_id)
-            
+            print('角色信息', character_info)
             # 构建系统提示
+            print('构建系统提示')
             system_prompt = self._build_system_prompt(character_info)
-            
-            # 构建消息历史
             messages = [{"role": "system", "content": system_prompt}]
-            messages.extend(session_history[-10:])  # 只保留最近10条消息
+            messages.extend(session_history[-10:])
             messages.append({"role": "user", "content": user_message})
             
-            # 调用OpenAI API
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=self.max_tokens,
-                temperature=0.8,
-                presence_penalty=0.1,
-                frequency_penalty=0.1
-            )
+            url = "https://openai.qiniu.com/v1/chat/completions"
+            headers = {
+                "Authorization": "Bearer "+self.api_key,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "stream": False,
+                "model": self.model,
+                "messages": messages
+            }
+            print('请求参数:', payload)
             
-            ai_response = response.choices[0].message.content
+            # 发送请求
+            response = requests.post(url, json=payload, headers=headers)
+            print('响应状态码:', response.status_code)
+            print('响应内容:', response.text)
+            
+            if response.status_code != 200:
+                raise AIResponseError(f"API请求失败，状态码: {response.status_code}, 响应: {response.text}")
+            
+            response_data = response.json()
+            ai_response = response_data['choices'][0]['message']['content']
             
             return {
                 "content": ai_response,
@@ -80,39 +92,39 @@ class AIService:
 """
     
     async def _get_character_info(self, character_id: str) -> Dict:
-        """获取角色信息（这里应该从数据库获取，暂时返回模拟数据）"""
-        # 模拟角色数据，实际应该从数据库获取
-        characters = {
-            "harry-potter": {
-                "name": "哈利·波特",
-                "description": "来自霍格沃茨魔法学校的年轻巫师，勇敢、善良，拥有强大的魔法天赋。",
-                "personality": "勇敢、善良、忠诚、有时冲动",
-                "background": "哈利·波特是J.K.罗琳创作的魔法世界中的主角，他在霍格沃茨魔法学校学习魔法，与朋友们一起对抗黑魔法师伏地魔。",
-                "voice_style": "年轻、充满活力、英国口音"
-            },
-            "socrates": {
-                "name": "苏格拉底",
-                "description": "古希腊哲学家，以苏格拉底式问答法闻名，追求真理和智慧。",
-                "personality": "智慧、好奇、耐心、善于提问",
-                "background": "苏格拉底是古希腊最著名的哲学家之一，他通过不断的提问和对话来探索真理，对西方哲学产生了深远影响。",
-                "voice_style": "深沉、智慧、古希腊口音"
-            },
-            "einstein": {
-                "name": "阿尔伯特·爱因斯坦",
-                "description": "理论物理学家，相对论的创立者，被誉为现代物理学之父。",
-                "personality": "天才、幽默、谦逊、富有想象力",
-                "background": "爱因斯坦是20世纪最伟大的物理学家之一，他的相对论彻底改变了我们对时间和空间的理解。",
-                "voice_style": "温和、幽默、德国口音"
+        """从数据库获取角色信息"""
+        try:
+            from app.core.database import AsyncSessionLocal
+            from app.services.character_service import CharacterService
+            
+            async with AsyncSessionLocal() as db:
+                character_service = CharacterService(db)
+                character = await character_service.get_character_by_id(character_id)
+                if character:
+                    return {
+                        "name": character.name,
+                        "description": character.description,
+                        "personality": character.personality,
+                        "background": character.background,
+                        "voice_style": character.voice_style or "自然"
+                    }
+                else:
+                    return {
+                        "name": "未知角色",
+                        "description": "一个神秘的角色",
+                        "personality": "友善、好奇",
+                        "background": "背景未知",
+                        "voice_style": "自然"
+                    }
+        except Exception as e:
+            print(f"获取角色信息失败: {e}")
+            return {
+                "name": "未知角色",
+                "description": "一个神秘的角色",
+                "personality": "友善、好奇",
+                "background": "背景未知",
+                "voice_style": "自然"
             }
-        }
-        
-        return characters.get(character_id, {
-            "name": "未知角色",
-            "description": "一个神秘的角色",
-            "personality": "友善、好奇",
-            "background": "背景未知",
-            "voice_style": "自然"
-        })
     
     async def analyze_sentiment(self, text: str) -> Dict[str, float]:
         """分析文本情感"""

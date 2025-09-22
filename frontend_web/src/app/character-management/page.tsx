@@ -46,53 +46,13 @@ export default function CharacterManagementPage() {
   const fetchCharacters = async () => {
     try {
       setLoading(true);
-      
-      // 尝试从API获取数据
-      try {
-        const data = await apiService.getCharacters();
-        console.log('从API获取到的角色数据:', data);
-        setCharacters(data);
-      } catch (apiError) {
-        console.log('API调用失败，使用测试数据:', apiError);
-        
-        // 如果API调用失败，使用测试数据
-        const testCharacters: Character[] = [
-          {
-            id: 'harry-potter',
-            name: '哈利·波特',
-            description: '来自霍格沃茨魔法学校的年轻巫师，勇敢、善良，拥有强大的魔法天赋。',
-            avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face',
-            personality: '勇敢、善良、忠诚、有时冲动',
-            background: '哈利·波特是J.K.罗琳创作的魔法世界中的主角，他在霍格沃茨魔法学校学习魔法，与朋友们一起对抗黑魔法师伏地魔。',
-            voiceStyle: '年轻、充满活力、英国口音',
-            category: 'literature',
-            tags: ['魔法', '冒险', '友谊', '勇气'],
-            popularity: 95,
-            isPopular: true,
-            isCustom: false
-          },
-          {
-            id: 'socrates',
-            name: '苏格拉底',
-            description: '古希腊哲学家，以苏格拉底式问答法闻名，追求真理和智慧。',
-            avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face',
-            personality: '智慧、好奇、耐心、善于提问',
-            background: '苏格拉底是古希腊最著名的哲学家之一，他通过不断的提问和对话来探索真理，对西方哲学产生了深远影响。',
-            voiceStyle: '深沉、智慧、古希腊口音',
-            category: 'philosophy',
-            tags: ['哲学', '智慧', '真理', '对话'],
-            popularity: 88,
-            isPopular: true,
-            isCustom: false
-          }
-        ];
-        
-        setCharacters(testCharacters);
-        console.log('使用测试角色数据:', testCharacters);
-      }
-      
+      const data = await apiService.getCharacters();
+      console.log('从API获取到的角色数据:', data);
+      setCharacters(data);
     } catch (error) {
       console.error('获取角色列表失败:', error);
+      // 如果API调用失败，显示空列表而不是测试数据
+      setCharacters([]);
     } finally {
       setLoading(false);
     }

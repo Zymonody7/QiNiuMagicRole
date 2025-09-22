@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from app.core.database import get_db
-from app.core.auth import get_current_active_user, get_current_user
+from app.core.auth import get_current_active_user, get_current_user, get_current_user_optional
 from app.schemas.chat import ChatMessageResponse, ChatSessionResponse, ChatRequest, ChatResponse
 from app.services.chat_service import ChatService
 from app.services.ai_service import AIService
@@ -18,19 +18,19 @@ router = APIRouter()
 async def send_message(
     request: ChatRequest,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user_optional)
 ):
     """发送聊天消息"""
     chat_service = ChatService(db)
     ai_service = AIService()
-    
+    print("当前用户", current_user)
     # 获取或创建聊天会话
-    user_id = current_user.id if current_user else request.user_id
+    user_id = current_user.id if current_user else (request.user_id or "anonymous")
     session = await chat_service.get_or_create_session(
         character_id=request.character_id,
         user_id=user_id
     )
-    
+    print("会话", session.id)
     # 保存用户消息
     user_message = await chat_service.add_message(
         session_id=session.id,
@@ -38,14 +38,23 @@ async def send_message(
         is_user=True,
         audio_url=request.audio_url
     )
-    
+    print("用户消息", user_message.to_dict())
+    print(request.character_id)
     try:
+        # return ChatResponse(
+        #     session_id=session.id,
+        #     user_message=user_message.to_dict(),
+        #     ai_message={'a':'b'},
+        #     character_id=request.character_id
+        # )
+        
         # 生成AI响应
         ai_response = await ai_service.generate_response(
             character_id=request.character_id,
             user_message=request.message,
             session_history=await chat_service.get_session_history(session.id)
         )
+        print("AI响应", ai_response)
         
         # 保存AI响应
         ai_message = await chat_service.add_message(
@@ -54,6 +63,7 @@ async def send_message(
             is_user=False,
             audio_url=ai_response.get("audio_url")
         )
+        print("AI消息", ai_message)
         
         return ChatResponse(
             session_id=session.id,

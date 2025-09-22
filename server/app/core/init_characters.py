@@ -4,7 +4,7 @@
 
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import async_session
+from app.core.database import AsyncSessionLocal
 from app.models.character import Character
 from app.services.character_service import CharacterService
 
@@ -154,7 +154,7 @@ PRESET_CHARACTERS = [
 
 async def init_characters():
     """初始化角色数据"""
-    async with async_session() as db:
+    async with AsyncSessionLocal() as db:
         character_service = CharacterService(db)
         
         for char_data in PRESET_CHARACTERS:

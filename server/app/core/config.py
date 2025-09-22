@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-3.5-turbo"
     OPENAI_MAX_TOKENS: int = 1000
+    QINIU_API_KEY: Optional[str] = None
+    QINIU_MODEL: str = "x-ai/grok-4-fast"
     
     # 语音配置
     SPEECH_RECOGNITION_LANGUAGE: str = "zh-CN"

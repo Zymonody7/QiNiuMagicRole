@@ -38,109 +38,115 @@ class ApiService {
   }
 
   // 角色相关API
-  async getCharacters(params?: {
-    category?: string;
-    search?: string;
-    popular_only?: boolean;
-    limit?: number;
-    offset?: number;
-  }): Promise<Character[]> {
-    const queryParams = new URLSearchParams();
-    if (params?.category) queryParams.append('category', params.category);
-    if (params?.search) queryParams.append('search', params.search);
-    if (params?.popular_only) queryParams.append('popular_only', 'true');
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-    if (params?.offset) queryParams.append('offset', params.offset.toString());
+  async getCharacters(
+    skip: number = 0,
+    limit: number = 100,
+    category?: string,
+    search?: string
+  ): Promise<Character[]> {
+    const params = new URLSearchParams();
+    params.append('skip', skip.toString());
+    params.append('limit', limit.toString());
+    if (category) params.append('category', category);
+    if (search) params.append('search', search);
 
-    const queryString = queryParams.toString();
-    const endpoint = queryString ? `/characters?${queryString}` : '/characters';
-    
-    return this.request<Character[]>(endpoint);
+    return this.request<Character[]>(`/characters/?${params}`);
   }
 
-  async getCharacter(id: string): Promise<Character> {
-    return this.request<Character>(`/characters/${id}`);
+  async getCharacterById(characterId: string): Promise<Character> {
+    return this.request<Character>(`/characters/${characterId}`);
   }
 
   async createCharacter(characterData: Partial<Character>): Promise<Character> {
-    return this.request<Character>('/characters', {
+    return this.request<Character>('/characters/', {
       method: 'POST',
       body: JSON.stringify(characterData),
     });
   }
 
-  async updateCharacter(id: string, characterData: Partial<Character>): Promise<Character> {
-    return this.request<Character>(`/characters/${id}`, {
+  async updateCharacter(characterId: string, characterData: Partial<Character>): Promise<Character> {
+    return this.request<Character>(`/characters/${characterId}`, {
       method: 'PUT',
       body: JSON.stringify(characterData),
     });
   }
 
-  async deleteCharacter(id: string): Promise<void> {
-    return this.request<void>(`/characters/${id}`, {
+  async deleteCharacter(characterId: string): Promise<void> {
+    await this.request(`/characters/${characterId}`, {
       method: 'DELETE',
     });
   }
 
-  async getCategories(): Promise<{ categories: Array<{ id: string; name: string }> }> {
-    return this.request<{ categories: Array<{ id: string; name: string }> }>('/characters/categories/list');
+  async getPopularCharacters(limit: number = 10): Promise<Character[]> {
+    return this.request<Character[]>(`/characters/popular/list?limit=${limit}`);
   }
 
-  // AI技能相关API
-  async generateCreativeContent(data: {
-    character_id: string;
-    prompt: string;
-    content_type: string;
-  }): Promise<{ content: string; character_id: string; skill_type: string; metadata?: any }> {
-    return this.request('/ai-skills/creative-content', {
+  // 聊天相关API
+  async sendMessage(
+    characterId: string,
+    message: string,
+    sessionId: string
+  ): Promise<string> {
+    const response = await this.request<{ response: string }>('/chat/send', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        character_id: characterId,
+        message,
+        session_id: sessionId,
+      }),
+    });
+    return response.response;
+  }
+
+  async getSessionMessages(sessionId: string): Promise<any[]> {
+    return this.request<any[]>(`/chat/sessions/${sessionId}/messages`);
+  }
+
+  async getUserSessions(characterId?: string): Promise<any[]> {
+    const params = characterId ? `?character_id=${characterId}` : '';
+    return this.request<any[]>(`/chat/sessions${params}`);
+  }
+
+  async sendVoiceMessage(
+    characterId: string,
+    audioBlob: Blob,
+    sessionId: string
+  ): Promise<string> {
+    const formData = new FormData();
+    formData.append('character_id', characterId);
+    formData.append('audio_data', audioBlob, 'voice.wav');
+    formData.append('session_id', sessionId);
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/voice/speech-to-text`, {
+      method: 'POST',
+      headers: {
+        ...(this.token && { Authorization: `Bearer ${this.token}` }),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.response;
+  }
+
+  // 用户相关API
+  async getUserProfile(): Promise<any> {
+    return this.request('/users/profile');
+  }
+
+  async updateUserProfile(userData: any): Promise<any> {
+    return this.request('/users/profile', {
+      method: 'PUT',
+      body: JSON.stringify(userData),
     });
   }
 
-  async answerKnowledgeQuestion(data: {
-    character_id: string;
-    question: string;
-  }): Promise<{ content: string; character_id: string; skill_type: string }> {
-    return this.request('/ai-skills/knowledge-qa', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async provideEmotionalSupport(data: {
-    character_id: string;
-    message: string;
-  }): Promise<{ content: string; character_id: string; skill_type: string }> {
-    return this.request('/ai-skills/emotional-support', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async rolePlayScenario(data: {
-    character_id: string;
-    scenario: string;
-    user_role: string;
-  }): Promise<{ content: string; character_id: string; skill_type: string; metadata?: any }> {
-    return this.request('/ai-skills/role-play', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async analyzeSentiment(text: string): Promise<{ text: string; sentiment: { positive: number; negative: number; neutral: number } }> {
-    return this.request('/ai-skills/sentiment-analysis', {
-      method: 'POST',
-      body: JSON.stringify({ text }),
-    });
-  }
-
-  async getCharacterSkills(characterId: string): Promise<string[]> {
-    return this.request<string[]>(`/ai-skills/skills/${characterId}`);
-  }
-
-  // 更新token
+  // Token管理
   setToken(token: string): void {
     this.token = token;
     if (typeof window !== 'undefined') {
@@ -148,12 +154,19 @@ class ApiService {
     }
   }
 
-  // 清除token
   clearToken(): void {
     this.token = null;
     if (typeof window !== 'undefined') {
       localStorage.removeItem('auth_token');
     }
+  }
+
+  getToken(): string | null {
+    return this.token;
+  }
+
+  isAuthenticated(): boolean {
+    return !!this.token;
   }
 }
 

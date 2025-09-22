@@ -4,29 +4,65 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Star, MessageCircle, Users, Sparkles, Settings } from 'lucide-react';
 import CharacterCard from '@/components/CharacterCard';
+import CharacterDetailModal from '@/components/CharacterDetailModal';
 import SearchBar from '@/components/SearchBar';
 import CategoryFilter from '@/components/CategoryFilter';
 import UserMenu from '@/components/UserMenu';
 import Navigation from '@/components/Navigation';
 import { Character } from '@/types/character';
-import { characters, searchCharacters, getCharactersByCategory, getPopularCharacters } from '@/data/characters';
+import { apiService } from '@/services/apiService';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
-const categories = ['all', 'literature', 'history', 'science', 'mythology', 'art', 'philosophy'];
+const categories = [
+  { id: 'all', name: '全部' },
+  { id: 'literature', name: '文学' },
+  { id: 'history', name: '历史' },
+  { id: 'science', name: '科学' },
+  { id: 'mythology', name: '神话' },
+  { id: 'art', name: '艺术' },
+  { id: 'philosophy', name: '哲学' }
+];
 
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [filteredCharacters, setFilteredCharacters] = useState<Character[]>(characters);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [filteredCharacters, setFilteredCharacters] = useState<Character[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const router = useRouter();
   const { isAuthenticated } = useAuth();
 
+  // 获取角色数据
+  useEffect(() => {
+    const fetchCharacters = async () => {
+      try {
+        setLoading(true);
+        const data = await apiService.getCharacters();
+        setCharacters(data);
+      } catch (error) {
+        console.error('获取角色列表失败:', error);
+        setCharacters([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCharacters();
+  }, []);
+
+  // 过滤角色
   useEffect(() => {
     let filtered = characters;
 
     if (searchQuery) {
-      filtered = searchCharacters(searchQuery);
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(char =>
+        char.name.toLowerCase().includes(query) ||
+        char.description.toLowerCase().includes(query) ||
+        char.tags.some(tag => tag.toLowerCase().includes(query))
+      );
     }
 
     if (selectedCategory !== 'all') {
@@ -34,13 +70,32 @@ export default function HomePage() {
     }
 
     setFilteredCharacters(filtered);
-  }, [searchQuery, selectedCategory]);
+  }, [characters, searchQuery, selectedCategory]);
 
   const handleCharacterClick = (character: Character) => {
     router.push(`/chat/${character.id}`);
   };
 
-  const popularCharacters = getPopularCharacters();
+  const handleShowDetail = (character: Character) => {
+    setSelectedCharacter(character);
+  };
+
+  const handleCloseDetail = () => {
+    setSelectedCharacter(null);
+  };
+
+  const popularCharacters = characters.filter(char => char.isPopular);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">加载中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -60,7 +115,7 @@ export default function HomePage() {
               对话
             </h2>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              体验与哈利·波特、苏格拉底、爱因斯坦等著名角色的AI对话，支持语音聊天，开启跨越时空的交流之旅
+              体验与历史名人、文学角色、科学家等著名人物的AI对话，支持语音聊天，开启跨越时空的交流之旅
             </p>
           </motion.div>
 
@@ -115,6 +170,7 @@ export default function HomePage() {
                   <CharacterCard
                     character={character}
                     onClick={handleCharacterClick}
+                    onShowDetail={handleShowDetail}
                   />
                 </motion.div>
               ))}
@@ -155,6 +211,7 @@ export default function HomePage() {
                   <CharacterCard
                     character={character}
                     onClick={handleCharacterClick}
+                    onShowDetail={handleShowDetail}
                   />
                 </motion.div>
               ))}
@@ -230,6 +287,14 @@ export default function HomePage() {
           </p>
         </div>
       </footer>
+
+      {/* Character Detail Modal */}
+      {selectedCharacter && (
+        <CharacterDetailModal
+          character={selectedCharacter}
+          onClose={handleCloseDetail}
+        />
+      )}
     </div>
   );
 }

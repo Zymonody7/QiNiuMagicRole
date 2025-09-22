@@ -65,7 +65,7 @@ export default function AuthPage() {
               </h2>
               
               <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                体验与哈利·波特、苏格拉底、爱因斯坦等著名角色的AI对话，
+                体验与历史名人、文学角色、科学家等著名人物的AI对话，
                 支持语音聊天，开启跨越时空的交流之旅
               </p>
             </div>
@@ -73,7 +73,7 @@ export default function AuthPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                <span className="text-gray-700">10+ 经典角色，涵盖文学、历史、科学等领域</span>
+                <span className="text-gray-700">丰富的角色库，涵盖文学、历史、科学等领域</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 bg-primary-500 rounded-full"></div>

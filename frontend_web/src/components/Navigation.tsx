@@ -22,7 +22,7 @@ export default function Navigation() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
             <Link href="/" className="text-xl font-bold text-purple-600">
-              AI角色扮演
+              奇牛幻角
             </Link>
             <div className="hidden md:flex space-x-6">
               {navItems.map((item) => {
@@ -69,11 +69,11 @@ export default function Navigation() {
                     登录
                   </Button>
                 </Link>
-                <Link href="/auth">
+                {/* <Link href="/auth">
                   <Button className="bg-purple-600 hover:bg-purple-700" size="sm">
                     注册
                   </Button>
-                </Link>
+                </Link> */}
               </>
             )}
           </div>

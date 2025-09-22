@@ -3,47 +3,54 @@
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
-from app.models.character import Character
-from app.schemas.character import CharacterResponse, CharacterCreate, CharacterUpdate
+from app.schemas.character import CharacterCreate, CharacterUpdate, CharacterResponse
 from app.services.character_service import CharacterService
-from app.core.exceptions import CharacterNotFoundError
+from app.models.character import Character
 
 router = APIRouter()
 
 @router.get("/", response_model=List[CharacterResponse])
 async def get_characters(
-    category: Optional[str] = Query(None, description="角色分类筛选"),
-    search: Optional[str] = Query(None, description="搜索关键词"),
-    popular_only: bool = Query(False, description="仅返回热门角色"),
-    limit: int = Query(50, description="返回数量限制"),
-    offset: int = Query(0, description="偏移量"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    category: Optional[str] = None,
+    search: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
     """获取角色列表"""
-    character_service = CharacterService(db)
-    characters = await character_service.get_characters(
-        category=category,
-        search=search,
-        popular_only=popular_only,
-        limit=limit,
-        offset=offset
-    )
-    return [char.to_dict() for char in characters]
+    try:
+        character_service = CharacterService(db)
+        characters = await character_service.get_characters(
+            skip=skip,
+            limit=limit,
+            category=category,
+            search=search
+        )
+        return characters
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取角色列表失败: {str(e)}")
 
 @router.get("/{character_id}", response_model=CharacterResponse)
-async def get_character(
+async def get_character_by_id(
     character_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """获取单个角色详情"""
-    character_service = CharacterService(db)
-    character = await character_service.get_character_by_id(character_id)
-    if not character:
-        raise CharacterNotFoundError(character_id)
-    return character.to_dict()
+    """根据ID获取角色详情"""
+    try:
+        character_service = CharacterService(db)
+        character = await character_service.get_character_by_id(character_id)
+        
+        if not character:
+            raise HTTPException(status_code=404, detail="角色不存在")
+        
+        return character
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取角色详情失败: {str(e)}")
 
 @router.post("/", response_model=CharacterResponse)
 async def create_character(
@@ -51,9 +58,12 @@ async def create_character(
     db: AsyncSession = Depends(get_db)
 ):
     """创建新角色"""
-    character_service = CharacterService(db)
-    character = await character_service.create_character(character_data)
-    return character.to_dict()
+    try:
+        character_service = CharacterService(db)
+        character = await character_service.create_character(character_data)
+        return character
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建角色失败: {str(e)}")
 
 @router.put("/{character_id}", response_model=CharacterResponse)
 async def update_character(
@@ -62,11 +72,18 @@ async def update_character(
     db: AsyncSession = Depends(get_db)
 ):
     """更新角色信息"""
-    character_service = CharacterService(db)
-    character = await character_service.update_character(character_id, character_data)
-    if not character:
-        raise CharacterNotFoundError(character_id)
-    return character.to_dict()
+    try:
+        character_service = CharacterService(db)
+        character = await character_service.update_character(character_id, character_data)
+        
+        if not character:
+            raise HTTPException(status_code=404, detail="角色不存在")
+        
+        return character
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新角色失败: {str(e)}")
 
 @router.delete("/{character_id}")
 async def delete_character(
@@ -74,22 +91,28 @@ async def delete_character(
     db: AsyncSession = Depends(get_db)
 ):
     """删除角色"""
-    character_service = CharacterService(db)
-    success = await character_service.delete_character(character_id)
-    if not success:
-        raise CharacterNotFoundError(character_id)
-    return {"message": "角色删除成功"}
+    try:
+        character_service = CharacterService(db)
+        success = await character_service.delete_character(character_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="角色不存在")
+        
+        return {"message": "角色删除成功"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除角色失败: {str(e)}")
 
-@router.get("/categories/list")
-async def get_categories():
-    """获取所有角色分类"""
-    return {
-        "categories": [
-            {"id": "literature", "name": "文学"},
-            {"id": "history", "name": "历史"},
-            {"id": "science", "name": "科学"},
-            {"id": "mythology", "name": "神话"},
-            {"id": "art", "name": "艺术"},
-            {"id": "philosophy", "name": "哲学"}
-        ]
-    }
+@router.get("/popular/list", response_model=List[CharacterResponse])
+async def get_popular_characters(
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取热门角色"""
+    try:
+        character_service = CharacterService(db)
+        characters = await character_service.get_popular_characters(limit=limit)
+        return characters
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取热门角色失败: {str(e)}")

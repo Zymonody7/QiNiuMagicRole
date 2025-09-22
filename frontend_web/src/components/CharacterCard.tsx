@@ -1,77 +1,139 @@
-'use client';
-
-import { Character } from '@/types/character';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { MessageCircle, Star, Users } from 'lucide-react';
-import Image from 'next/image';
+import { Star, MessageCircle, Users, Info } from 'lucide-react';
+import { Character } from '@/types/character';
 
 interface CharacterCardProps {
   character: Character;
-  onClick: (character: Character) => void;
+  onClick?: (character: Character) => void;
+  onShowDetail?: (character: Character) => void;
   showActions?: boolean;
+  compact?: boolean;
 }
 
-export default function CharacterCard({ character, onClick, showActions = false }: CharacterCardProps) {
+export default function CharacterCard({ 
+  character, 
+  onClick, 
+  onShowDetail,
+  showActions = true,
+  compact = false 
+}: CharacterCardProps) {
+  const handleClick = () => {
+    if (onClick) {
+      onClick(character);
+    }
+  };
+
+  const handleDetailClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onShowDetail) {
+      onShowDetail(character);
+    }
+  };
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden border border-gray-100"
-      onClick={() => onClick(character)}
+      onClick={handleClick}
+      className={`bg-white rounded-xl shadow-lg overflow-hidden cursor-pointer transition-all hover:shadow-xl ${
+        compact ? 'p-3' : 'p-6'
+      }`}
     >
-      <div className="relative h-48 bg-gradient-to-br from-primary-100 to-secondary-100">
-        <Image
-          src={character.avatar}
+      {/* 头像 */}
+      <div className={`relative ${compact ? 'mb-3' : 'mb-4'}`}>
+        <img
+          src={character.avatar || '/default-avatar.png'}
           alt={character.name}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className={`rounded-lg object-cover bg-gray-200 ${
+            compact ? 'w-12 h-12' : 'w-full h-48'
+          }`}
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = '/default-avatar.png';
+          }}
         />
-        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-          <Star className="w-3 h-3 text-yellow-500 fill-current" />
-          <span className="text-xs font-medium text-gray-700">{character.popularity}</span>
-        </div>
-      </div>
-      
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-semibold text-gray-900">{character.name}</h3>
-          <span className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full">
-            {String(character.category)}
-          </span>
-        </div>
         
-        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+        {/* 热门标签 */}
+        {character.is_popular && (
+          <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+            <Star className="w-3 h-3" />
+            热门
+          </div>
+        )}
+        
+        {/* 自定义标签 */}
+        {character.is_custom && (
+          <div className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
+            自定义
+          </div>
+        )}
+      </div>
+
+      {/* 角色信息 */}
+      <div className={compact ? 'space-y-1' : 'space-y-2'}>
+        <h3 className={`font-bold text-gray-900 ${compact ? 'text-sm' : 'text-lg'}`}>
+          {character.name}
+        </h3>
+        
+        <p className={`text-gray-600 line-clamp-2 ${compact ? 'text-xs' : 'text-sm'}`}>
           {character.description}
         </p>
         
-        <div className="flex flex-wrap gap-1 mb-3">
-          {character.tags && character.tags.slice(0, 3).map((tag, index) => (
-            <span
-              key={index}
-              className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full"
-            >
-              {String(tag)}
-            </span>
-          ))}
-          {character.tags && character.tags.length > 3 && (
-            <span className="text-xs text-gray-500">+{character.tags.length - 3}</span>
-          )}
+        {/* 分类标签 */}
+        <div className="flex items-center gap-2">
+          <span className={`bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium ${
+            compact ? 'text-xs' : 'text-sm'
+          }`}>
+            {character.category}
+          </span>
         </div>
         
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 text-sm text-gray-500">
-            <MessageCircle className="w-4 h-4" />
-            <span>开始对话</span>
+        {/* 标签 */}
+        {character.tags && character.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {character.tags.slice(0, 3).map((tag, index) => (
+              <span
+                key={index}
+                className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs"
+              >
+                {tag}
+              </span>
+            ))}
+            {character.tags.length > 3 && (
+              <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
+                +{character.tags.length - 3}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-1 text-sm text-gray-500">
-            <Users className="w-4 h-4" />
-            <span>{character.popularity}% 受欢迎</span>
+        )}
+        
+        {/* 统计信息和操作按钮 */}
+        {showActions && !compact && (
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <div className="flex items-center gap-1">
+                <Users className="w-4 h-4" />
+                <span>{character.popularity}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <MessageCircle className="w-4 h-4" />
+                <span>对话</span>
+              </div>
+            </div>
+            
+            {/* 详情按钮 */}
+            {onShowDetail && (
+              <button
+                onClick={handleDetailClick}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="查看详情"
+              >
+                <Info className="w-4 h-4 text-gray-500" />
+              </button>
+            )}
           </div>
-        </div>
+        )}
       </div>
     </motion.div>
   );

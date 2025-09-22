@@ -84,3 +84,30 @@ async def get_current_active_user(current_user = Depends(get_current_user)):
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="非活跃用户")
     return current_user
+
+async def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取当前用户（可选）"""
+    if not credentials:
+        return None
+    
+    try:
+        token = credentials.credentials
+        payload = verify_token(token)
+        if payload is None:
+            return None
+        
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            return None
+            
+    except JWTError:
+        return None
+    
+    # 延迟导入避免循环导入
+    from app.services.user_service import UserService
+    user_service = UserService(db)
+    user = await user_service.get_user_by_id(user_id)
+    return user

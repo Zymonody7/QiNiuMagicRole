@@ -9,15 +9,15 @@ export class ChatService {
     sessionId: string
   ): Promise<string> {
     try {
-      const response = await fetch(`${this.baseUrl}/chat`, {
+      const response = await fetch(`${this.baseUrl}/chat/message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          characterId,
+          character_id: characterId,
           message,
-          sessionId,
+          session_id: sessionId,
         }),
       });
 
@@ -27,11 +27,7 @@ export class ChatService {
 
       const data = await response.json();
       
-      if (!data.success) {
-        throw new Error(data.error || '发送消息失败');
-      }
-
-      return data.response;
+      return data.ai_message.content;
     } catch (error) {
       console.error('发送消息失败:', error);
       throw error;
@@ -44,19 +40,14 @@ export class ChatService {
       if (search) params.append('search', search);
       if (category) params.append('category', category);
 
-      const response = await fetch(`${this.baseUrl}/characters?${params}`);
+      const response = await fetch(`${this.baseUrl}/characters/?${params}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.error || '获取角色列表失败');
-      }
-
-      return data.characters;
+      return data;
     } catch (error) {
       console.error('获取角色列表失败:', error);
       throw error;
@@ -144,11 +135,11 @@ export class ChatService {
   ): Promise<any> {
     try {
       const formData = new FormData();
-      formData.append('characterId', characterId);
-      formData.append('audioData', audioData, 'voice.wav');
-      formData.append('sessionId', sessionId);
+      formData.append('audio_file', audioData, 'voice.wav');
+      formData.append('character_id', characterId);
+      formData.append('language', 'zh-CN');
 
-      const response = await fetch(`${this.baseUrl}/voice-call`, {
+      const response = await fetch(`${this.baseUrl}/voice/process-voice-message`, {
         method: 'POST',
         body: formData,
       });
@@ -160,10 +151,10 @@ export class ChatService {
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(data.error || '发送语音消息失败');
+        throw new Error(data.message || '发送语音消息失败');
       }
 
-      return data.response;
+      return data.recognized_text;
     } catch (error) {
       console.error('发送语音消息失败:', error);
       throw error;

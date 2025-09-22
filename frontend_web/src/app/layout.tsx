@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'AI角色扮演',
-  description: '与哈利·波特、苏格拉底、爱因斯坦等著名角色进行AI对话，支持语音聊天功能',
+  description: '与历史名人、文学角色、科学家等著名人物进行AI对话，支持语音聊天功能',
   keywords: 'AI, 角色扮演, 对话, 语音聊天, 历史人物',
 }
 

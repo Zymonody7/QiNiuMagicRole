@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
 
 # 创建FastAPI应用
 app = FastAPI(
-    title="AI角色扮演API",
+    title="七牛幻角API",
     description="基于AI的角色扮演对话系统，支持语音交互",
     version="1.0.0",
     lifespan=lifespan
