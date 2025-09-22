@@ -1,0 +1,47 @@
+"""
+角色数据模型
+"""
+
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, JSON
+from sqlalchemy.sql import func
+from app.core.database import Base
+
+class Character(Base):
+    """角色模型"""
+    __tablename__ = "characters"
+    
+    id = Column(String(50), primary_key=True, index=True)
+    name = Column(String(100), nullable=False, index=True)
+    description = Column(Text, nullable=False)
+    avatar = Column(String(500), nullable=True)
+    personality = Column(Text, nullable=False)
+    background = Column(Text, nullable=False)
+    voice_style = Column(String(200), nullable=True)
+    category = Column(String(50), nullable=False, index=True)
+    tags = Column(JSON, nullable=True)  # 存储标签列表
+    popularity = Column(Integer, default=0)
+    is_popular = Column(Boolean, default=False)
+    is_custom = Column(Boolean, default=False)
+    created_by = Column(String(100), nullable=True)  # 创建者ID
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "avatar": self.avatar,
+            "personality": self.personality,
+            "background": self.background,
+            "voiceStyle": self.voice_style,
+            "category": self.category,
+            "tags": self.tags or [],
+            "popularity": self.popularity,
+            "isPopular": self.is_popular,
+            "isCustom": self.is_custom,
+            "createdBy": self.created_by,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "updatedAt": self.updated_at.isoformat() if self.updated_at else None
+        }
