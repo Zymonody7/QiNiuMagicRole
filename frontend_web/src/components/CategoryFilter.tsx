@@ -2,21 +2,16 @@
 
 import { motion } from 'framer-motion';
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 interface CategoryFilterProps {
-  categories: string[];
+  categories: Category[];
   selectedCategory: string;
   onCategoryChange: (category: string) => void;
 }
-
-const categoryLabels: Record<string, string> = {
-  all: '全部',
-  literature: '文学',
-  history: '历史',
-  science: '科学',
-  mythology: '神话',
-  art: '艺术',
-  philosophy: '哲学'
-};
 
 export default function CategoryFilter({ categories, selectedCategory, onCategoryChange }: CategoryFilterProps) {
   return (
@@ -24,21 +19,21 @@ export default function CategoryFilter({ categories, selectedCategory, onCategor
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="flex flex-wrap gap-2 mb-6"
+      className="flex flex-wrap gap-2"
     >
       {categories.map((category) => (
         <motion.button
-          key={category}
+          key={category.id}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => onCategoryChange(category)}
+          onClick={() => onCategoryChange(category.id)}
           className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-            selectedCategory === category
+            selectedCategory === category.id
               ? 'bg-primary-500 text-white shadow-lg'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
-          {categoryLabels[category] || category}
+          {category.name}
         </motion.button>
       ))}
     </motion.div>

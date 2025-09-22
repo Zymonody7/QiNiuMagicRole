@@ -6,9 +6,12 @@ import { Search, Star, MessageCircle, Users, Sparkles, Settings } from 'lucide-r
 import CharacterCard from '@/components/CharacterCard';
 import SearchBar from '@/components/SearchBar';
 import CategoryFilter from '@/components/CategoryFilter';
+import UserMenu from '@/components/UserMenu';
+import Navigation from '@/components/Navigation';
 import { Character } from '@/types/character';
 import { characters, searchCharacters, getCharactersByCategory, getPopularCharacters } from '@/data/characters';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 const categories = ['all', 'literature', 'history', 'science', 'mythology', 'art', 'philosophy'];
 
@@ -17,6 +20,7 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [filteredCharacters, setFilteredCharacters] = useState<Character[]>(characters);
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     let filtered = characters;
@@ -40,42 +44,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-2"
-            >
-              <div className="w-8 h-8 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="text-xl font-bold gradient-text">AI角色扮演</h1>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-4"
-            >
-              <button
-                onClick={() => router.push('/character-config')}
-                className="flex items-center gap-2 px-3 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">配置角色</span>
-              </button>
-              
-              <div className="hidden sm:flex items-center gap-2 text-sm text-gray-600">
-                <Users className="w-4 h-4" />
-                <span>与历史人物对话</span>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </header>
+      <Navigation />
 
       {/* Hero Section */}
       <section className="py-12 px-4 sm:px-6 lg:px-8">

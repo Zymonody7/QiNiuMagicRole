@@ -8,9 +8,10 @@ import Image from 'next/image';
 interface CharacterCardProps {
   character: Character;
   onClick: (character: Character) => void;
+  showActions?: boolean;
 }
 
-export default function CharacterCard({ character, onClick }: CharacterCardProps) {
+export default function CharacterCard({ character, onClick, showActions = false }: CharacterCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -39,7 +40,7 @@ export default function CharacterCard({ character, onClick }: CharacterCardProps
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold text-gray-900">{character.name}</h3>
           <span className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full">
-            {character.category}
+            {String(character.category)}
           </span>
         </div>
         
@@ -48,15 +49,15 @@ export default function CharacterCard({ character, onClick }: CharacterCardProps
         </p>
         
         <div className="flex flex-wrap gap-1 mb-3">
-          {character.tags.slice(0, 3).map((tag, index) => (
+          {character.tags && character.tags.slice(0, 3).map((tag, index) => (
             <span
               key={index}
               className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full"
             >
-              {tag}
+              {String(tag)}
             </span>
           ))}
-          {character.tags.length > 3 && (
+          {character.tags && character.tags.length > 3 && (
             <span className="text-xs text-gray-500">+{character.tags.length - 3}</span>
           )}
         </div>

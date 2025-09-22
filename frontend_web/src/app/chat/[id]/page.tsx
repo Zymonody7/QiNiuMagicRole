@@ -3,11 +3,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Volume2, VolumeX, Settings, RotateCcw, Phone } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Settings, RotateCcw, Phone, MessageSquare } from 'lucide-react';
 import CharacterCard from '@/components/CharacterCard';
 import ChatMessage from '@/components/ChatMessage';
 import ChatInput from '@/components/ChatInput';
 import VoiceCall from '@/components/VoiceCall';
+import VoiceChat from '@/components/VoiceChat';
+import Navigation from '@/components/Navigation';
 import { Character, ChatMessage as ChatMessageType, ChatSession } from '@/types/character';
 import { getCharacterById } from '@/data/characters';
 import { useVoice } from '@/hooks/useVoice';
@@ -24,6 +26,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId] = useState(() => `session_${Date.now()}`);
   const [isCallActive, setIsCallActive] = useState(false);
+  const [showVoiceChat, setShowVoiceChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { isRecording, isSupported: voiceSupported, startRecording, stopRecording, transcript } = useVoice();
@@ -195,6 +198,8 @@ export default function ChatPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Navigation />
+      
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -223,6 +228,16 @@ export default function ChatPage() {
             </div>
             
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowVoiceChat(!showVoiceChat)}
+                className={`p-2 rounded-lg transition-colors ${
+                  showVoiceChat ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100'
+                }`}
+                title="语音聊天"
+              >
+                <MessageSquare className="w-5 h-5" />
+              </button>
+              
               <button
                 onClick={handleClearChat}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -259,6 +274,26 @@ export default function ChatPage() {
       <div className="flex-1 overflow-hidden">
         <div className="h-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="h-full flex flex-col">
+            
+            {/* Voice Chat Panel */}
+            {showVoiceChat && character && (
+              <div className="mb-4">
+                <VoiceChat
+                  character={character}
+                  onMessage={handleSendMessage}
+                  onReceiveMessage={(message) => {
+                    const aiMessage: ChatMessageType = {
+                      id: `voice_ai_${Date.now()}`,
+                      characterId: characterId,
+                      content: message,
+                      isUser: false,
+                      timestamp: new Date(),
+                    };
+                    setMessages(prev => [...prev, aiMessage]);
+                  }}
+                />
+              </div>
+            )}
             {/* Character Info */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}

@@ -6,11 +6,14 @@ export interface Character {
   personality: string;
   background: string;
   voiceStyle: string;
-  category: 'literature' | 'history' | 'science' | 'mythology' | 'art' | 'philosophy';
+  category: string; // 改为string类型，避免类型错误
   tags: string[];
   popularity: number;
   isPopular?: boolean;
   isCustom?: boolean; // 是否为自定义角色
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ChatMessage {

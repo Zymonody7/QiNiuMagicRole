@@ -5,22 +5,49 @@ import { Search, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface SearchBarProps {
-  onSearch: (query: string) => void;
+  value?: string;
+  onChange?: (query: string) => void;
+  onSearch?: (query: string) => void;
   placeholder?: string;
   className?: string;
 }
 
-export default function SearchBar({ onSearch, placeholder = "搜索角色...", className = "" }: SearchBarProps) {
-  const [query, setQuery] = useState('');
+export default function SearchBar({ 
+  value, 
+  onChange, 
+  onSearch, 
+  placeholder = "搜索角色...", 
+  className = "" 
+}: SearchBarProps) {
+  const [internalQuery, setInternalQuery] = useState('');
+  const query = value !== undefined ? value : internalQuery;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch(query);
+    if (onSearch) {
+      onSearch(query);
+    }
   };
 
   const handleClear = () => {
-    setQuery('');
-    onSearch('');
+    const newQuery = '';
+    if (onChange) {
+      onChange(newQuery);
+    } else {
+      setInternalQuery(newQuery);
+    }
+    if (onSearch) {
+      onSearch(newQuery);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newQuery = e.target.value;
+    if (onChange) {
+      onChange(newQuery);
+    } else {
+      setInternalQuery(newQuery);
+    }
   };
 
   return (
@@ -36,7 +63,7 @@ export default function SearchBar({ onSearch, placeholder = "搜索角色...", c
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={handleInputChange}
           placeholder={placeholder}
           className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white shadow-sm"
         />
