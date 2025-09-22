@@ -23,20 +23,31 @@ class ChatSession(Base):
     character = relationship("Character")
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
     
-    def to_dict(self):
-        """转换为字典"""
+    # def to_dict(self):
+    #     """转换为字典"""
+    #     return {
+    #         "id": self.id,
+    #         "characterId": self.character_id,
+    #         "userId": self.user_id,
+    #         "title": self.title,
+    #         "createdAt": self.created_at.isoformat() if self.created_at else None,
+    #         "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
+    #         "isActive": self.is_active,
+    #         "character": self.character.to_dict() if self.character else None,
+    #         "messageCount": len(self.messages) if self.messages else 0
+    #     }
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
-            "characterId": self.character_id,
-            "userId": self.user_id,
+            "character_id": self.character_id,   # 蛇形
+            "user_id": self.user_id,
             "title": self.title,
-            "createdAt": self.created_at.isoformat() if self.created_at else None,
-            "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
-            "isActive": self.is_active,
+            "created_at": self.created_at,       # 蛇形
+            "updated_at": self.updated_at,
+            "is_active": self.is_active,
             "character": self.character.to_dict() if self.character else None,
-            "messageCount": len(self.messages) if self.messages else 0
+            "message_count": len(self.messages),
         }
-
 class ChatMessage(Base):
     """聊天消息模型"""
     __tablename__ = "chat_messages"

@@ -8,9 +8,24 @@ from app.core.config import settings
 def create_database():
     """创建MySQL数据库"""
     # 解析数据库URL
+  
+    print(f"数据库URL: {settings.DATABASE_URL}")
+    
+    url_parts = settings.DATABASE_URL.split('://')[1]
+    print(f"URL部分: {url_parts}")
+    
+    auth_host, database = url_parts.split('/') 
+    print(f"认证主机: {auth_host}, 数据库: {database}")
+    
+    auth, host_port = auth_host.split('@') 
+    print(f"认证: {auth}, 主机端口: {host_port}")
+    
+    username, password = auth.split(':', 1) 
+    print(f"用户名: {username}, 密码: {password}")
+    
     # 处理端口号
     if ':' in host_port:
-        host, port = host_port.split(':')  # ['127.0.0.1', '3306']
+        host, port = host_port.split(':') 
     else:
         host = host_port
         port = '3306'

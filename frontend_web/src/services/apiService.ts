@@ -24,7 +24,7 @@ class ApiService {
         ...(this.token && { Authorization: `Bearer ${this.token}` }),
         ...options.headers,
       },
-      ...options,
+      // ...options,
     };
 
     const response = await fetch(url, config);
@@ -104,7 +104,7 @@ class ApiService {
 
   async getUserSessions(characterId?: string): Promise<any[]> {
     const params = characterId ? `?character_id=${characterId}` : '';
-    return this.request<any[]>(`/chat/sessions${params}`);
+    return this.request<any[]>(`/chat/sessions/${characterId}/session`);
   }
 
   async sendVoiceMessage(

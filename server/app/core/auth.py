@@ -56,7 +56,7 @@ async def get_current_user(
         detail="无法验证凭据",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+    print(credentials)
     try:
         token = credentials.credentials
         payload = verify_token(token)

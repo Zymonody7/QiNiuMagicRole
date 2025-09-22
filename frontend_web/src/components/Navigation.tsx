@@ -12,7 +12,6 @@ export default function Navigation() {
 
   const navItems = [
     { href: '/', label: '首页', icon: Home },
-    { href: '/chat', label: '聊天', icon: MessageCircle },
     { href: '/character-management', label: '角色管理', icon: Users },
   ];
 

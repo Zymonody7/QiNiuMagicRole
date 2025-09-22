@@ -66,23 +66,20 @@ class ChatService:
         limit: int = 20,
         offset: int = 0
     ) -> List[ChatSession]:
+        print('用户输入',user_id, character_id)
         """获取用户会话列表"""
-        query = select(ChatSession).options(
-            selectinload(ChatSession.character)
+        query = (
+            select(ChatSession)
+            .options(
+                selectinload(ChatSession.character),   # 你已有的
+                selectinload(ChatSession.messages)     # 再加这一行
+            )
+            .where(ChatSession.user_id == user_id)
         )
-        
-        conditions = [ChatSession.is_active == True]
-        
-        if user_id:
-            conditions.append(ChatSession.user_id == user_id)
-        
         if character_id:
-            conditions.append(ChatSession.character_id == character_id)
-        
-        query = query.where(and_(*conditions)).order_by(
-            desc(ChatSession.updated_at)
-        ).offset(offset).limit(limit)
-        
+            query = query.where(ChatSession.character_id == character_id)
+
+        query = query.offset(offset).limit(limit)
         result = await self.db.execute(query)
         return result.scalars().all()
     
@@ -129,13 +126,19 @@ class ChatService:
         result = await self.db.execute(query)
         return result.scalars().all()
     
-    async def get_session_history(self, session_id: str) -> List[dict]:
+    async def get_session_history(self, 
+                                  session_id: str,        
+                                  limit: int = 20,
+                                  offset: int = 0) -> List[dict]:
         """获取会话历史（用于AI上下文）"""
-        messages = await self.get_session_messages(session_id, limit=20)
+        messages = await self.get_session_messages(session_id, limit=limit)
         return [
             {
-                "role": "user" if msg.is_user else "assistant",
-                "content": msg.content
+                "is_user": msg.is_user,
+                "content": msg.content,
+                "created_at": msg.created_at
+                # "id": msg.id,
+                # "audio_url": msg.audio_url,
             }
             for msg in messages
         ]

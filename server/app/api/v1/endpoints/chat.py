@@ -4,7 +4,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
+from typing import Dict, List, Optional
 from app.core.database import get_db
 from app.core.auth import get_current_active_user, get_current_user, get_current_user_optional
 from app.schemas.chat import ChatMessageResponse, ChatSessionResponse, ChatRequest, ChatResponse
@@ -75,11 +75,9 @@ async def send_message(
     except Exception as e:
         raise AIResponseError(f"AI响应生成失败: {str(e)}")
 
-@router.get("/sessions", response_model=List[ChatSessionResponse])
+@router.get("/sessions/{character_id}/session", response_model=List[ChatSessionResponse])
 async def get_user_sessions(
     character_id: Optional[str] = None,
-    limit: int = 20,
-    offset: int = 0,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -89,24 +87,24 @@ async def get_user_sessions(
     sessions = await chat_service.get_user_sessions(
         user_id=user_id,
         character_id=character_id,
-        limit=limit,
-        offset=offset
+        limit=20,
+        offset=0
     )
     return [session.to_dict() for session in sessions]
 
-@router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
-async def get_session(
-    session_id: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """获取聊天会话详情"""
-    chat_service = ChatService(db)
-    session = await chat_service.get_session_by_id(session_id)
-    if not session:
-        raise ChatSessionNotFoundError(session_id)
-    return session.to_dict()
+# @router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
+# async def get_session(
+#     session_id: str,
+#     db: AsyncSession = Depends(get_db)
+# ):
+#     """获取聊天会话详情"""
+#     chat_service = ChatService(db)
+#     session = await chat_service.get_session_by_id(session_id)
+#     if not session:
+#         raise ChatSessionNotFoundError(session_id)
+#     return session.to_dict()
 
-@router.get("/sessions/{session_id}/messages", response_model=List[ChatMessageResponse])
+@router.get("/sessions/{session_id}/messages", response_model=List[Dict])
 async def get_session_messages(
     session_id: str,
     limit: int = 50,
@@ -115,12 +113,14 @@ async def get_session_messages(
 ):
     """获取会话消息历史"""
     chat_service = ChatService(db)
-    messages = await chat_service.get_session_messages(
+    messages = await chat_service.get_session_history(
         session_id=session_id,
         limit=limit,
         offset=offset
     )
-    return [message.to_dict() for message in messages]
+    # print(messages)
+    return messages
+
 
 @router.delete("/sessions/{session_id}")
 async def delete_session(

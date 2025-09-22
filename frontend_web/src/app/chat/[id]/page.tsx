@@ -41,6 +41,8 @@ export default function ChatPage() {
       setCharacter(characterData);
       
       // 尝试获取用户的历史会话
+      console.log('尝试获取历史会话');
+      
       await fetchChatHistory(characterData);
     } catch (error) {
       console.error('获取角色信息失败:', error);
@@ -52,8 +54,8 @@ export default function ChatPage() {
   const fetchChatHistory = async (characterData: Character) => {
     try {
       // 获取用户与该角色的历史会话
-      const sessions = await apiService.getUserSessions(characterId);
-      
+      const sessions = await apiService.getUserSessions(characterData.id);
+      console.log('历史会话:', sessions);
       if (sessions && sessions.length > 0) {
         // 使用最新的会话
         const latestSession = sessions[0];

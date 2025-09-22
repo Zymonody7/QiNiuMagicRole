@@ -36,6 +36,7 @@ class ChatSessionResponse(BaseModel):
     
     class Config:
         from_attributes = True
+        allow_population_by_field_name = True  
 
 class ChatRequest(BaseModel):
     """聊天请求模式"""
