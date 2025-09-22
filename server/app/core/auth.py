@@ -9,7 +9,6 @@ from passlib.context import CryptContext
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.config import settings
-from app.services.user_service import UserService
 from app.core.database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -71,6 +70,8 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
     
+    # 延迟导入避免循环导入
+    from app.services.user_service import UserService
     user_service = UserService(db)
     user = await user_service.get_user_by_id(user_id)
     if user is None:
