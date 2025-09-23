@@ -43,10 +43,17 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
 
     try {
       await onSubmit({
-        ...formData,
+        name: formData.name,
+        description: formData.description,
+        avatar: formData.avatar,
+        personality: formData.personality,
+        background: formData.background,
+        voice_style: formData.voiceStyle,
+        category: formData.category,
+        tags: formData.tags,
         popularity: 0,
-        isPopular: false,
-        isCustom: true,
+        is_popular: false,
+        is_custom: true,
       });
     } finally {
       setLoading(false);

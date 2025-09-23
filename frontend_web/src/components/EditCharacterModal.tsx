@@ -23,11 +23,11 @@ export default function EditCharacterModal({ character, onClose, onSubmit }: Edi
     avatar: character.avatar,
     personality: character.personality,
     background: character.background,
-    voiceStyle: character.voiceStyle,
+    voiceStyle: character.voice_style,
     category: character.category,
     tags: character.tags,
     popularity: character.popularity,
-    isPopular: character.isPopular || false,
+    isPopular: character.is_popular || false,
   });
   const [newTag, setNewTag] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,7 +46,18 @@ export default function EditCharacterModal({ character, onClose, onSubmit }: Edi
     setLoading(true);
 
     try {
-      await onSubmit(formData);
+      await onSubmit({
+        name: formData.name,
+        description: formData.description,
+        avatar: formData.avatar,
+        personality: formData.personality,
+        background: formData.background,
+        voice_style: formData.voiceStyle,
+        category: formData.category,
+        tags: formData.tags,
+        popularity: formData.popularity,
+        is_popular: formData.isPopular,
+      });
     } finally {
       setLoading(false);
     }

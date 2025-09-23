@@ -48,12 +48,12 @@ export default function CharacterDetailModal({ character, onClose }: CharacterDe
               {/* Avatar */}
               <div className="relative">
                 <img
-                  src={character.avatar || '/default-avatar.png'}
+                  src={character.avatar || '/default-avatar.svg'}
                   alt={character.name}
                   className="w-24 h-24 rounded-xl object-cover bg-gray-200"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    target.src = '/default-avatar.png';
+                    target.src = '/default-avatar.svg';
                   }}
                 />
                 

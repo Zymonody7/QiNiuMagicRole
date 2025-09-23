@@ -43,14 +43,14 @@ export default function CharacterCard({
       {/* 头像 */}
       <div className={`relative ${compact ? 'mb-3' : 'mb-4'}`}>
         <img
-          src={character.avatar || '/default-avatar.png'}
+          src={character.avatar || '/default-avatar.svg'}
           alt={character.name}
           className={`rounded-lg object-cover bg-gray-200 ${
             compact ? 'w-12 h-12' : 'w-full h-48'
           }`}
           onError={(e) => {
             const target = e.target as HTMLImageElement;
-            target.src = '/default-avatar.png';
+            target.src = '/default-avatar.svg';
           }}
         />
         

@@ -24,7 +24,7 @@ class ApiService {
         ...(this.token && { Authorization: `Bearer ${this.token}` }),
         ...options.headers,
       },
-      // ...options,
+      ...options,
     };
 
     const response = await fetch(url, config);
