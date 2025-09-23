@@ -49,7 +49,19 @@ class AIService:
             print('请求参数:', payload)
             
             # 发送请求
-            response = requests.post(url, json=payload, headers=headers)
+            # response = requests.post(url, json=payload, headers=headers)
+
+            # 将上面的发送请求改为下面的，即可强制禁用代理，开不开vpn皆可使用
+            session = requests.Session()
+            session.trust_env = False  # 禁用系统环境变量中的代理设置
+
+            response = session.post(
+                url,
+                json=payload,
+                headers=headers,
+                timeout=10
+            )
+
             print('响应状态码:', response.status_code)
             print('响应内容:', response.text)
             
