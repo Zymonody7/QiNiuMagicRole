@@ -69,16 +69,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 构建查询参数
-    const queryParams = new URLSearchParams();
-    queryParams.append('text', text);
-    queryParams.append('character_id', characterId);
-    queryParams.append('language', language);
-    queryParams.append('speed', speed);
+    // 构建FormData发送到后端
+    const backendFormData = new FormData();
+    backendFormData.append('text', text);
+    backendFormData.append('character_id', characterId);
+    backendFormData.append('language', language);
+    backendFormData.append('speed', speed);
 
     // 调用后端TTS API
-    const response = await fetch(`${BACKEND_URL}/api/v1/voice/text-to-speech?${queryParams}`, {
-      method: 'GET',
+    const response = await fetch(`${BACKEND_URL}/api/v1/voice/text-to-speech`, {
+      method: 'POST',
+      body: backendFormData,
     });
 
     if (!response.ok) {

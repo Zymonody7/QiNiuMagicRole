@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 from app.core.config import settings
 from app.core.database import init_db
 from app.api.v1.api import api_router
-from app.core.exceptions import setup_exception_handlers
+from app.core.middleware import setup_exception_handlers
 
 # 加载环境变量
 load_dotenv()

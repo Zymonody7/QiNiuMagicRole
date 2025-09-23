@@ -10,46 +10,99 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class BaseCustomException(Exception):
+    """基础自定义异常类"""
+    def __init__(self, message: str, error_code: str = None, status_code: int = 500):
+        self.message = message
+        self.error_code = error_code
+        self.status_code = status_code
+        super().__init__(self.message)
+
 class CustomHTTPException(HTTPException):
     """自定义HTTP异常"""
     def __init__(self, status_code: int, detail: str, error_code: str = None):
         super().__init__(status_code=status_code, detail=detail)
         self.error_code = error_code
 
-class CharacterNotFoundError(CustomHTTPException):
+class CharacterNotFoundError(BaseCustomException):
     """角色不存在异常"""
     def __init__(self, character_id: str):
         super().__init__(
-            status_code=404,
-            detail=f"角色 {character_id} 不存在",
-            error_code="CHARACTER_NOT_FOUND"
+            message=f"角色 {character_id} 不存在",
+            error_code="CHARACTER_NOT_FOUND",
+            status_code=404
         )
 
-class ChatSessionNotFoundError(CustomHTTPException):
+class ChatSessionNotFoundError(BaseCustomException):
     """聊天会话不存在异常"""
     def __init__(self, session_id: str):
         super().__init__(
-            status_code=404,
-            detail=f"聊天会话 {session_id} 不存在",
-            error_code="SESSION_NOT_FOUND"
+            message=f"聊天会话 {session_id} 不存在",
+            error_code="SESSION_NOT_FOUND",
+            status_code=404
         )
 
-class VoiceProcessingError(CustomHTTPException):
+class VoiceProcessingError(BaseCustomException):
     """语音处理异常"""
-    def __init__(self, detail: str = "语音处理失败"):
+    def __init__(self, message: str = "语音处理失败"):
         super().__init__(
-            status_code=500,
-            detail=detail,
-            error_code="VOICE_PROCESSING_ERROR"
+            message=message,
+            error_code="VOICE_PROCESSING_ERROR",
+            status_code=500
         )
 
-class AIResponseError(CustomHTTPException):
+class AIResponseError(BaseCustomException):
     """AI响应异常"""
-    def __init__(self, detail: str = "AI响应生成失败"):
+    def __init__(self, message: str = "AI响应生成失败"):
         super().__init__(
-            status_code=500,
-            detail=detail,
-            error_code="AI_RESPONSE_ERROR"
+            message=message,
+            error_code="AI_RESPONSE_ERROR",
+            status_code=500
+        )
+
+class DatabaseError(BaseCustomException):
+    """数据库操作异常"""
+    def __init__(self, message: str = "数据库操作失败"):
+        super().__init__(
+            message=message,
+            error_code="DATABASE_ERROR",
+            status_code=500
+        )
+
+class AuthenticationError(BaseCustomException):
+    """认证异常"""
+    def __init__(self, message: str = "认证失败"):
+        super().__init__(
+            message=message,
+            error_code="AUTHENTICATION_ERROR",
+            status_code=401
+        )
+
+class AuthorizationError(BaseCustomException):
+    """授权异常"""
+    def __init__(self, message: str = "权限不足"):
+        super().__init__(
+            message=message,
+            error_code="AUTHORIZATION_ERROR",
+            status_code=403
+        )
+
+class FileUploadError(BaseCustomException):
+    """文件上传异常"""
+    def __init__(self, message: str = "文件上传失败"):
+        super().__init__(
+            message=message,
+            error_code="FILE_UPLOAD_ERROR",
+            status_code=400
+        )
+
+class ExternalServiceError(BaseCustomException):
+    """外部服务异常"""
+    def __init__(self, message: str = "外部服务调用失败"):
+        super().__init__(
+            message=message,
+            error_code="EXTERNAL_SERVICE_ERROR",
+            status_code=502
         )
 
 async def custom_http_exception_handler(request: Request, exc: CustomHTTPException):

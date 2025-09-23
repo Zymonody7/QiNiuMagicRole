@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Send, Mic, MicOff, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useVoice } from '@/hooks/useVoice';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
-  onVoiceInput: () => void;
+  onVoiceInput: (audioBlob: Blob) => void;
   isVoiceEnabled: boolean;
   isRecording: boolean;
   isLoading: boolean;
@@ -22,6 +23,10 @@ export default function ChatInput({
   disabled = false 
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const { isSupported: voiceSupported } = useVoice();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +40,76 @@ export default function ChatInput({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
+    }
+  };
+
+  const startVoiceRecording = useCallback(async () => {
+    if (!voiceSupported) {
+      alert('您的浏览器不支持语音录制功能');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      });
+      
+      // 检查浏览器支持的音频格式
+      const options = { mimeType: 'audio/webm;codecs=opus' };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        // 如果不支持 webm，尝试其他格式
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options.mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/wav')) {
+          options.mimeType = 'audio/wav';
+        } else {
+          // 使用默认格式
+          delete options.mimeType;
+        }
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        onVoiceInput(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+        setIsVoiceRecording(false);
+      };
+
+      mediaRecorder.start();
+      setIsVoiceRecording(true);
+    } catch (error) {
+      console.error('无法访问麦克风:', error);
+      alert('无法访问麦克风，请检查权限设置');
+    }
+  }, [voiceSupported, onVoiceInput]);
+
+  const stopVoiceRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isVoiceRecording) {
+      mediaRecorderRef.current.stop();
+    }
+  }, [isVoiceRecording]);
+
+  const handleVoiceToggle = () => {
+    if (isVoiceRecording) {
+      stopVoiceRecording();
+    } else {
+      startVoiceRecording();
     }
   };
 
@@ -64,17 +139,17 @@ export default function ChatInput({
             type="button"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={onVoiceInput}
-            disabled={disabled || isLoading}
+            onClick={handleVoiceToggle}
+            disabled={disabled || isLoading || !voiceSupported}
             className={`p-3 rounded-xl transition-all duration-200 ${
-              isRecording
+              isVoiceRecording
                 ? 'bg-red-500 text-white animate-pulse'
-                : isVoiceEnabled
+                : isVoiceEnabled && voiceSupported
                 ? 'bg-primary-500 text-white hover:bg-primary-600'
                 : 'bg-gray-200 text-gray-500'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            {isRecording ? (
+            {isVoiceRecording ? (
               <MicOff className="w-5 h-5" />
             ) : (
               <Mic className="w-5 h-5" />
@@ -97,13 +172,23 @@ export default function ChatInput({
         </div>
       </form>
       
-      {isRecording && (
+      {isVoiceRecording && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="mt-2 text-center text-sm text-red-500"
         >
           正在录音中... 点击麦克风停止
+        </motion.div>
+      )}
+      
+      {!voiceSupported && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-2 text-center text-sm text-yellow-600"
+        >
+          您的浏览器不支持语音功能
         </motion.div>
       )}
     </motion.div>

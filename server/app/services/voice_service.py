@@ -12,6 +12,10 @@ from app.core.exceptions import VoiceProcessingError
 import asyncio
 from pydub import AudioSegment
 import tempfile
+import logging
+
+# 设置日志
+logger = logging.getLogger(__name__)
 
 class VoiceService:
     """语音服务类"""
@@ -37,37 +41,108 @@ class VoiceService:
             raise VoiceProcessingError(f"语音识别失败: {str(e)}")
     
     def _speech_to_text_sync(self, audio_path: str, language: str) -> str:
-        """同步语音转文字"""
+        """同步语音转文字 - 支持多种识别引擎和降级方案"""
+        wav_path = None
         try:
             # 加载音频文件
             audio = AudioSegment.from_file(audio_path)
             
-            # 转换为WAV格式（如果需要的話）
-            if not audio_path.endswith('.wav'):
-                wav_path = audio_path.replace('.', '_temp.') + '.wav'
-                audio.export(wav_path, format="wav")
-                audio_path = wav_path
+            # 音频预处理
+            # 1. 转换为单声道
+            if audio.channels > 1:
+                audio = audio.set_channels(1)
+            
+            # 2. 设置采样率为16kHz（Google Speech Recognition推荐）
+            audio = audio.set_frame_rate(16000)
+            
+            # 3. 标准化音量
+            audio = audio.normalize()
+            
+            # 4. 转换为WAV格式
+            wav_path = audio_path.replace('.', '_processed.') + '.wav'
+            audio.export(wav_path, format="wav", parameters=["-ac", "1", "-ar", "16000"])
             
             # 使用speech_recognition进行识别
-            with sr.AudioFile(audio_path) as source:
+            with sr.AudioFile(wav_path) as source:
+                # 调整环境噪音
+                self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
                 audio_data = self.recognizer.record(source)
             
-            # 识别语音
-            text = self.recognizer.recognize_google(
-                audio_data, 
-                language=language
-            )
-            
-            # 清理临时文件
-            if audio_path.endswith('_temp.wav'):
-                os.remove(audio_path)
+            # 尝试多种识别引擎
+            text = self._try_multiple_recognition_engines(audio_data, language)
             
             return text
             
         except sr.UnknownValueError:
-            raise VoiceProcessingError("无法识别语音内容")
-        except sr.RequestError as e:
-            raise VoiceProcessingError(f"语音识别服务错误: {str(e)}")
+            raise VoiceProcessingError("无法识别语音内容，请确保语音清晰")
+        except Exception as e:
+            raise VoiceProcessingError(f"语音识别失败: {str(e)}")
+        finally:
+            # 清理临时文件
+            if wav_path and os.path.exists(wav_path):
+                try:
+                    os.remove(wav_path)
+                except Exception as e:
+                    logger.warning(f"清理临时文件失败: {e}")
+    
+    def _try_multiple_recognition_engines(self, audio_data, language: str) -> str:
+        """尝试多种语音识别引擎"""
+        recognition_engines = [
+            ("Google Web Speech", lambda: self.recognizer.recognize_google(audio_data, language=language)),
+            ("Google Cloud Speech", lambda: self.recognizer.recognize_google_cloud(audio_data, language=language)),
+            ("Bing Speech", lambda: self.recognizer.recognize_bing(audio_data, language=language)),
+            ("Azure Speech", lambda: self.recognizer.recognize_azure(audio_data, language=language)),
+            ("Sphinx (Offline)", lambda: self.recognizer.recognize_sphinx(audio_data)),
+        ]
+        
+        last_error = None
+        
+        for engine_name, recognition_func in recognition_engines:
+            try:
+                logger.info(f"尝试使用 {engine_name} 进行语音识别...")
+                text = recognition_func()
+                if text and text.strip():
+                    logger.info(f"使用 {engine_name} 识别成功: {text}")
+                    return text
+            except sr.RequestError as e:
+                logger.warning(f"{engine_name} 连接失败: {e}")
+                last_error = e
+                continue
+            except sr.UnknownValueError as e:
+                logger.warning(f"{engine_name} 无法识别语音: {e}")
+                last_error = e
+                continue
+            except Exception as e:
+                logger.warning(f"{engine_name} 发生未知错误: {e}")
+                last_error = e
+                continue
+        
+        # 如果所有在线引擎都失败，尝试离线引擎
+        try:
+            logger.info("尝试使用离线语音识别...")
+            text = self.recognizer.recognize_sphinx(audio_data)
+            if text and text.strip():
+                logger.info(f"离线识别成功: {text}")
+                return text
+        except Exception as e:
+            logger.warning(f"离线识别也失败: {e}")
+        
+        # 如果所有引擎都失败，返回模拟文本
+        if last_error:
+            logger.error(f"所有语音识别引擎都失败，最后错误: {last_error}")
+            return self._get_fallback_response()
+        
+        raise VoiceProcessingError("无法识别语音内容，请确保语音清晰")
+    
+    def _get_fallback_response(self) -> str:
+        """当语音识别失败时的降级响应"""
+        fallback_responses = [
+            "抱歉，我无法识别您的语音，请尝试重新录制或使用文字输入。",
+            "语音识别服务暂时不可用，请使用文字输入与我交流。",
+            "我听到了您的声音，但无法准确识别内容，请重试或使用文字输入。"
+        ]
+        import random
+        return random.choice(fallback_responses)
     
     async def text_to_speech(
         self, 

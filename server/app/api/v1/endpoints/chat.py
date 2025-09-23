@@ -38,8 +38,8 @@ async def send_message(
         is_user=True,
         audio_url=request.audio_url
     )
-    print("用户消息", user_message.to_dict())
-    print(request.character_id)
+    # print("用户消息", user_message.to_dict())
+    # print(request.character_id)
     try:
         # return ChatResponse(
         #     session_id=session.id,
@@ -52,9 +52,9 @@ async def send_message(
         ai_response = await ai_service.generate_response(
             character_id=request.character_id,
             user_message=request.message,
-            session_history=await chat_service.get_session_history(session.id)
+            session_history=await chat_service.get_session_history(session.id,has_date=False)
         )
-        print("AI响应", ai_response)
+        # print("AI响应", ai_response)
         
         # 保存AI响应
         ai_message = await chat_service.add_message(
@@ -63,7 +63,7 @@ async def send_message(
             is_user=False,
             audio_url=ai_response.get("audio_url")
         )
-        print("AI消息", ai_message)
+        # print("AI消息", ai_message)
         
         return ChatResponse(
             session_id=session.id,

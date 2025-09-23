@@ -157,15 +157,38 @@ export default function ChatPage() {
       setIsLoading(true);
       const response = await ChatService.sendVoiceMessage(character.id, audioBlob, sessionId);
       
-      const aiMessage: ChatMessageType = {
-        id: `ai_${Date.now()}`,
-        content: response,
-        isUser: false,
-        timestamp: new Date(),
-        characterId: character.id
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
+      if (response.success) {
+        // 语音识别成功，显示识别结果
+        const userMessage: ChatMessageType = {
+          id: `user_voice_${Date.now()}`,
+          content: `[语音] ${response.text}`,
+          isUser: true,
+          timestamp: new Date(),
+          characterId: character.id
+        };
+        setMessages(prev => [...prev, userMessage]);
+        
+        // 继续发送给AI处理
+        const aiResponse = await ChatService.sendMessage(character.id, response.text, sessionId);
+        const aiMessage: ChatMessageType = {
+          id: `ai_${Date.now()}`,
+          content: aiResponse,
+          isUser: false,
+          timestamp: new Date(),
+          characterId: character.id
+        };
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        // 语音识别失败，显示错误信息
+        const errorMessage: ChatMessageType = {
+          id: `error_${Date.now()}`,
+          content: response.message || '语音识别失败，请重试或使用文字输入。',
+          isUser: false,
+          timestamp: new Date(),
+          characterId: character.id
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } catch (error) {
       console.error('发送语音消息失败:', error);
       const errorMessage: ChatMessageType = {

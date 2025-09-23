@@ -129,7 +129,8 @@ class ChatService:
     async def get_session_history(self, 
                                   session_id: str,        
                                   limit: int = 20,
-                                  offset: int = 0) -> List[dict]:
+                                  offset: int = 0,
+                                  has_date: bool = True) -> List[dict]:
         """获取会话历史（用于AI上下文）"""
         messages = await self.get_session_messages(session_id, limit=limit)
         return [
@@ -139,6 +140,9 @@ class ChatService:
                 "created_at": msg.created_at
                 # "id": msg.id,
                 # "audio_url": msg.audio_url,
+            } if has_date else {
+                "role": "user" if msg.is_user else "assistant",
+                "content": msg.content,
             }
             for msg in messages
         ]

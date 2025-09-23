@@ -151,10 +151,22 @@ export class ChatService {
       const data = await response.json();
       
       if (!data.success) {
+        // 如果是语音识别失败，返回友好的错误信息
+        if (data.error_type === 'voice_recognition_failed') {
+          return {
+            success: false,
+            message: data.message || '语音识别失败，请重试或使用文字输入',
+            isRecognitionError: true
+          };
+        }
         throw new Error(data.message || '发送语音消息失败');
       }
 
-      return data.recognized_text;
+      return {
+        success: true,
+        text: data.recognized_text,
+        message: data.message
+      };
     } catch (error) {
       console.error('发送语音消息失败:', error);
       throw error;
