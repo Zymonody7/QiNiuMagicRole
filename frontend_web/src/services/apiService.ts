@@ -152,6 +152,38 @@ class ApiService {
     });
   }
 
+  async updateCharacterWithAudio(characterId: string, characterData: Partial<Character> & { referenceAudio?: File }): Promise<Character> {
+    const formData = new FormData();
+    
+    // 添加角色数据
+    Object.entries(characterData).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (key === 'tags' && Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value));
+        } else if (key === 'referenceAudio' && value instanceof File) {
+          formData.append('reference_audio', value);
+        } else if (key !== 'referenceAudio') {
+          formData.append(key, String(value));
+        }
+      }
+    });
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/characters/${characterId}/with-audio`, {
+      method: 'PUT',
+      headers: {
+        ...(this.token && { Authorization: `Bearer ${this.token}` }),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
   async deleteCharacter(characterId: string): Promise<void> {
     await this.request(`/characters/${characterId}`, {
       method: 'DELETE',

@@ -89,11 +89,24 @@ export default function CharacterManagementPage() {
     }
   };
 
-  const handleEditCharacter = async (characterData: Partial<Character>) => {
+  const handleEditCharacter = async (characterData: Partial<Character> & { referenceAudio?: File }) => {
     if (!selectedCharacter) return;
 
     try {
-      const updatedCharacter = await apiService.updateCharacter(selectedCharacter.id, characterData);
+      let updatedCharacter;
+      
+      // 检查是否有音频文件需要上传
+      if (characterData.referenceAudio) {
+        // 使用带音频上传的更新方法
+        updatedCharacter = await apiService.updateCharacterWithAudio(
+          selectedCharacter.id, 
+          characterData
+        );
+      } else {
+        // 使用普通的更新方法
+        updatedCharacter = await apiService.updateCharacter(selectedCharacter.id, characterData);
+      }
+      
       setCharacters(prev =>
         prev.map(char => char.id === updatedCharacter.id ? updatedCharacter : char)
       );

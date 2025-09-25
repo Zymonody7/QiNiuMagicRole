@@ -167,6 +167,17 @@ from module.models import Generator, SynthesizerTrn, SynthesizerTrnV3
 from peft import LoraConfig, get_peft_model
 from AR.models.t2s_lightning_module import Text2SemanticLightningModule
 from text import cleaned_text_to_sequence
+from exception_handler import (
+    exception_handler, 
+    handle_model_errors, 
+    handle_audio_errors, 
+    handle_text_errors,
+    safe_execute,
+    safe_async_execute,
+    log_request_info,
+    log_response_info,
+    start_cleanup_task
+)
 from text.cleaner import clean_text
 from module.mel_processing import spectrogram_torch
 import config as global_config
@@ -827,6 +838,9 @@ splits = {
 }
 
 
+@handle_audio_errors
+@handle_text_errors
+@handle_model_errors
 def get_tts_wav(
     ref_wav_path,
     prompt_text,
@@ -1097,6 +1111,9 @@ def handle_change(path, text, language):
     return JSONResponse({"code": 0, "message": "Success"}, status_code=200)
 
 
+@handle_audio_errors
+@handle_text_errors
+@handle_model_errors
 def handle(
     refer_wav_path,
     prompt_text,
@@ -1300,66 +1317,116 @@ app = FastAPI()
 
 @app.post("/set_model")
 async def set_model(request: Request):
-    json_post_raw = await request.json()
-    return change_gpt_sovits_weights(
-        gpt_path=json_post_raw.get("gpt_model_path"), sovits_path=json_post_raw.get("sovits_model_path")
-    )
+    try:
+        log_request_info(request)
+        json_post_raw = await request.json()
+        result = change_gpt_sovits_weights(
+            gpt_path=json_post_raw.get("gpt_model_path"), 
+            sovits_path=json_post_raw.get("sovits_model_path")
+        )
+        log_response_info(result)
+        return result
+    except Exception as e:
+        return exception_handler.handle_exception(e, request)
 
 
 @app.get("/set_model")
 async def set_model(
+    request: Request,
     gpt_model_path: str = None,
     sovits_model_path: str = None,
 ):
-    return change_gpt_sovits_weights(gpt_path=gpt_model_path, sovits_path=sovits_model_path)
+    try:
+        log_request_info(request)
+        result = change_gpt_sovits_weights(
+            gpt_path=gpt_model_path, 
+            sovits_path=sovits_model_path
+        )
+        log_response_info(result)
+        return result
+    except Exception as e:
+        return exception_handler.handle_exception(e, request)
 
 
 @app.post("/control")
 async def control(request: Request):
-    json_post_raw = await request.json()
-    return handle_control(json_post_raw.get("command"))
+    try:
+        log_request_info(request)
+        json_post_raw = await request.json()
+        result = handle_control(json_post_raw.get("command"))
+        log_response_info(result)
+        return result
+    except Exception as e:
+        return exception_handler.handle_exception(e, request)
 
 
 @app.get("/control")
-async def control(command: str = None):
-    return handle_control(command)
+async def control(request: Request, command: str = None):
+    try:
+        log_request_info(request)
+        result = handle_control(command)
+        log_response_info(result)
+        return result
+    except Exception as e:
+        return exception_handler.handle_exception(e, request)
 
 
 @app.post("/change_refer")
 async def change_refer(request: Request):
-    json_post_raw = await request.json()
-    return handle_change(
-        json_post_raw.get("refer_wav_path"), json_post_raw.get("prompt_text"), json_post_raw.get("prompt_language")
-    )
+    try:
+        log_request_info(request)
+        json_post_raw = await request.json()
+        result = handle_change(
+            json_post_raw.get("refer_wav_path"), 
+            json_post_raw.get("prompt_text"), 
+            json_post_raw.get("prompt_language")
+        )
+        log_response_info(result)
+        return result
+    except Exception as e:
+        return exception_handler.handle_exception(e, request)
 
 
 @app.get("/change_refer")
-async def change_refer(refer_wav_path: str = None, prompt_text: str = None, prompt_language: str = None):
-    return handle_change(refer_wav_path, prompt_text, prompt_language)
+async def change_refer(request: Request, refer_wav_path: str = None, prompt_text: str = None, prompt_language: str = None):
+    try:
+        log_request_info(request)
+        result = handle_change(refer_wav_path, prompt_text, prompt_language)
+        log_response_info(result)
+        return result
+    except Exception as e:
+        return exception_handler.handle_exception(e, request)
 
 
 @app.post("/")
 async def tts_endpoint(request: Request):
-    json_post_raw = await request.json()
-    return handle(
-        json_post_raw.get("refer_wav_path"),
-        json_post_raw.get("prompt_text"),
-        json_post_raw.get("prompt_language"),
-        json_post_raw.get("text"),
-        json_post_raw.get("text_language"),
-        json_post_raw.get("cut_punc"),
-        json_post_raw.get("top_k", 15),
-        json_post_raw.get("top_p", 1.0),
-        json_post_raw.get("temperature", 1.0),
-        json_post_raw.get("speed", 1.0),
-        json_post_raw.get("inp_refs", []),
-        json_post_raw.get("sample_steps", 32),
-        json_post_raw.get("if_sr", False),
-    )
+    try:
+        log_request_info(request)
+        json_post_raw = await request.json()
+        result = handle(
+            json_post_raw.get("refer_wav_path"),
+            json_post_raw.get("prompt_text"),
+            json_post_raw.get("prompt_language"),
+            json_post_raw.get("text"),
+            json_post_raw.get("text_language"),
+            json_post_raw.get("cut_punc"),
+            json_post_raw.get("top_k", 15),
+            json_post_raw.get("top_p", 1.0),
+            json_post_raw.get("temperature", 1.0),
+            json_post_raw.get("speed", 1.0),
+            json_post_raw.get("inp_refs", []),
+            json_post_raw.get("sample_steps", 32),
+            json_post_raw.get("if_sr", False),
+        )
+        log_response_info(result)
+        return result
+    except Exception as e:
+        return exception_handler.handle_exception(e, request)
 
 
 @app.get("/")
 async def tts_endpoint(
+    request: Request,
     refer_wav_path: str = None,
     prompt_text: str = None,
     prompt_language: str = None,
@@ -1374,22 +1441,30 @@ async def tts_endpoint(
     sample_steps: int = 32,
     if_sr: bool = False,
 ):
-    return handle(
-        refer_wav_path,
-        prompt_text,
-        prompt_language,
-        text,
-        text_language,
-        cut_punc,
-        top_k,
-        top_p,
-        temperature,
-        speed,
-        inp_refs,
-        sample_steps,
-        if_sr,
-    )
+    try:
+        log_request_info(request)
+        result = handle(
+            refer_wav_path,
+            prompt_text,
+            prompt_language,
+            text,
+            text_language,
+            cut_punc,
+            top_k,
+            top_p,
+            temperature,
+            speed,
+            inp_refs,
+            sample_steps,
+            if_sr,
+        )
+        log_response_info(result)
+        return result
+    except Exception as e:
+        return exception_handler.handle_exception(e, request)
 
 
 if __name__ == "__main__":
+    # 启动异常处理模块
+    start_cleanup_task()
     uvicorn.run(app, host=host, port=port, workers=1)

@@ -54,6 +54,7 @@ export interface CharacterCreateRequest {
   personality: string;
   background: string;
   voice_style?: string;
+  referenceAudio?: File; // 添加音频文件字段
   reference_audio_path?: string;
   reference_audio_text?: string;
   reference_audio_language?: string;
@@ -68,6 +69,7 @@ export interface CharacterUpdateRequest {
   personality?: string;
   background?: string;
   voice_style?: string;
+  referenceAudio?: File; // 添加音频文件字段
   reference_audio_path?: string;
   reference_audio_text?: string;
   reference_audio_language?: string;

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Upload, Plus, X as XIcon } from 'lucide-react';
 import { apiService } from '@/services/apiService';
+import AudioRecorder from './AudioRecorder';
 
 interface CreateCharacterModalProps {
   onClose: () => void;
@@ -382,6 +383,27 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
                 </div>
               )}
             </div>
+          </div>
+
+          {/* 音频录制 */}
+          <div>
+            <AudioRecorder
+              onAudioRecorded={(audioBlob) => {
+                // 将录制的音频转换为File对象（现在是WAV格式）
+                const file = new File([audioBlob], `recording_${Date.now()}.wav`, {
+                  type: 'audio/wav'
+                });
+                setFormData(prev => ({ ...prev, referenceAudio: file }));
+                
+                // 创建音频预览
+                const audioUrl = URL.createObjectURL(audioBlob);
+                setAudioPreview(audioUrl);
+              }}
+              onAudioText={(text) => {
+                setFormData(prev => ({ ...prev, referenceAudioText: text }));
+              }}
+              language={formData.referenceAudioLanguage}
+            />
           </div>
 
           {/* 标签 */}

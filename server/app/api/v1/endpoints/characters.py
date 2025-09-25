@@ -89,6 +89,89 @@ async def update_character(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新角色失败: {str(e)}")
 
+@router.put("/{character_id}/with-audio", response_model=CharacterResponse)
+async def update_character_with_audio(
+    character_id: str,
+    name: str = Form(...),
+    description: str = Form(...),
+    personality: str = Form(...),
+    background: str = Form(...),
+    voice_style: str = Form(None),
+    category: str = Form(...),
+    tags: str = Form("[]"),
+    reference_audio: UploadFile = File(None),
+    reference_audio_text: str = Form(None),
+    reference_audio_language: str = Form("zh"),
+    db: AsyncSession = Depends(get_db)
+):
+    """更新角色信息（支持音频文件上传）"""
+    try:
+        character_service = CharacterService(db)
+        voice_service = VoiceService()
+        
+        # 处理音频文件
+        reference_audio_path = None
+        asr_text = reference_audio_text
+        
+        if reference_audio and reference_audio.filename:
+            # 确保上传目录存在
+            upload_dir = os.path.join(settings.UPLOAD_DIR, "reference_audios")
+            os.makedirs(upload_dir, exist_ok=True)
+            
+            # 生成唯一文件名
+            file_extension = os.path.splitext(reference_audio.filename)[1]
+            unique_filename = f"{uuid.uuid4().hex}{file_extension}"
+            file_path = os.path.join(upload_dir, unique_filename)
+            
+            # 保存文件
+            with open(file_path, "wb") as buffer:
+                content = await reference_audio.read()
+                buffer.write(content)
+            
+            reference_audio_path = f"/static/uploads/reference_audios/{unique_filename}"
+            
+            # 如果用户没有输入音频文本，尝试使用ASR自动提取
+            if not reference_audio_text or reference_audio_text.strip() == "":
+                try:
+                    asr_text = await voice_service.speech_to_text(file_path, reference_audio_language)
+                except Exception as asr_error:
+                    print(f"ASR处理异常: {str(asr_error)}")
+                    asr_text = ""
+        
+        # 解析tags
+        tags_list = []
+        if tags:
+            try:
+                import json
+                tags_list = json.loads(tags)
+            except:
+                tags_list = []
+        
+        # 创建角色更新数据
+        character_data = CharacterUpdate(
+            name=name,
+            description=description,
+            personality=personality,
+            background=background,
+            voice_style=voice_style,
+            category=category,
+            tags=tags_list,
+            reference_audio_path=reference_audio_path,
+            reference_audio_text=asr_text,
+            reference_audio_language=reference_audio_language
+        )
+        
+        character = await character_service.update_character(character_id, character_data)
+        
+        if not character:
+            raise HTTPException(status_code=404, detail="角色不存在")
+        
+        return character
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新角色失败: {str(e)}")
+
 @router.delete("/{character_id}")
 async def delete_character(
     character_id: str,
