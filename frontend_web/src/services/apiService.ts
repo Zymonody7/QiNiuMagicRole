@@ -106,6 +106,27 @@ class ApiService {
     }
   }
 
+  async transcribeAudio(audioFile: File, language: string = 'zh'): Promise<{ success: boolean; transcribed_text: string; message: string }> {
+    const formData = new FormData();
+    formData.append('reference_audio', audioFile);
+    formData.append('language', language);
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/characters/transcribe-audio`, {
+      method: 'POST',
+      headers: {
+        ...(this.token && { Authorization: `Bearer ${this.token}` }),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
   async updateCharacter(characterId: string, characterData: Partial<Character>): Promise<Character> {
     return this.request<Character>(`/characters/${characterId}`, {
       method: 'PUT',

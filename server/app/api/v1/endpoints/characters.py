@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.schemas.character import CharacterCreate, CharacterUpdate, CharacterResponse
 from app.services.character_service import CharacterService
+from app.services.voice_service import VoiceService
 from app.models.character import Character
 import os
 import uuid
@@ -138,9 +139,12 @@ async def create_character_with_audio(
     """创建带音频的角色"""
     try:
         character_service = CharacterService(db)
+        voice_service = VoiceService()
         
         # 处理音频文件
         reference_audio_path = None
+        asr_text = reference_audio_text  # 默认使用用户输入的文本
+        
         if reference_audio and reference_audio.filename:
             # 确保上传目录存在
             upload_dir = os.path.join(settings.UPLOAD_DIR, "reference_audios")
@@ -157,6 +161,16 @@ async def create_character_with_audio(
                 buffer.write(content)
             
             reference_audio_path = f"/static/uploads/reference_audios/{unique_filename}"
+            
+            # 如果用户没有输入音频文本，尝试使用ASR自动提取
+            if not reference_audio_text or reference_audio_text.strip() == "":
+                try:
+                    print(f"开始ASR处理音频: {file_path}")
+                    asr_text = await voice_service.speech_to_text(file_path, reference_audio_language)
+                    print(f"ASR提取文本成功: {asr_text}")
+                except Exception as asr_error:
+                    print(f"ASR处理异常: {str(asr_error)}")
+                    asr_text = ""  # ASR失败时保持为空
         
         # 解析tags
         tags_list = []
@@ -177,13 +191,67 @@ async def create_character_with_audio(
             avatar=avatar,
             voice_style=voice_style,
             reference_audio_path=reference_audio_path,
-            reference_audio_text=reference_audio_text,
+            reference_audio_text=asr_text,  # 使用ASR提取的文本或用户输入的文本
             reference_audio_language=reference_audio_language,
             tags=tags_list
         )
         
         character = await character_service.create_character(character_data)
-        return character
+        
+        # 返回创建结果，包含ASR信息
+        result = character.to_dict() if hasattr(character, 'to_dict') else character
+        result["asr_processed"] = asr_text != reference_audio_text if reference_audio_text else True
+        result["asr_text"] = asr_text
+        
+        return result
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"创建角色失败: {str(e)}")
+
+@router.post("/transcribe-audio")
+async def transcribe_character_audio(
+    reference_audio: UploadFile = File(...),
+    language: str = Form("zh"),
+    db: AsyncSession = Depends(get_db)
+):
+    """为角色音频进行ASR转录"""
+    try:
+        voice_service = VoiceService()
+        
+        # 验证文件类型
+        if not reference_audio.content_type.startswith('audio/'):
+            raise HTTPException(status_code=400, detail="请上传音频文件")
+        
+        # 保存临时文件
+        temp_filename = f"temp_asr_{uuid.uuid4().hex}"
+        file_extension = os.path.splitext(reference_audio.filename)[1] if reference_audio.filename else ".wav"
+        temp_path = f"{temp_filename}{file_extension}"
+        
+        try:
+            # 保存文件
+            with open(temp_path, "wb") as buffer:
+                content = await reference_audio.read()
+                buffer.write(content)
+            
+            # 执行ASR转录
+            transcribed_text = await voice_service.speech_to_text(temp_path, language)
+            
+            return {
+                "success": True,
+                "transcribed_text": transcribed_text,
+                "language": language,
+                "message": "音频转录成功"
+            }
+            
+        finally:
+            # 清理临时文件
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception as e:
+                    print(f"清理临时文件失败: {e}")
+                    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"音频转录失败: {str(e)}")

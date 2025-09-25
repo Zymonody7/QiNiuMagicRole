@@ -79,33 +79,52 @@ class TTSService:
     ) -> str:
         """调用llm_server进行TTS"""
         try:
-            # 构建请求数据
+            # 构造llm_server可以访问的音频文件路径
+            # 将server的音频路径转换为llm_server可以访问的路径
+            if reference_audio_path.startswith("/static/uploads/"):
+                # 移除 /static/uploads/ 前缀，构造相对路径
+                relative_path = reference_audio_path.replace("/static/uploads/", "")
+                # 构造llm_server可以访问的绝对路径
+                # 假设llm_server的根目录是QiNiuMagicRole，那么路径应该是相对于llm_server的路径
+                llm_server_refer_path = os.path.join("..", "server", "static", "uploads", relative_path)
+            else:
+                # 如果已经是绝对路径，直接使用
+                llm_server_refer_path = reference_audio_path
+            
+            # 构建请求数据，使用llm_server的API格式
             request_data = {
-                "text": text,
-                "text_language": text_language,
-                "refer_wav_path": reference_audio_path,
+                "refer_wav_path": llm_server_refer_path,
                 "prompt_text": reference_audio_text,
                 "prompt_language": reference_audio_language,
-                "top_k": 5,
+                "text": text,
+                "text_language": text_language,
+                "top_k": 15,
                 "top_p": 1.0,
                 "temperature": 1.0,
-                "cut_punc": "，。！？；：",
-                "media_type": "wav"
+                "speed": 1.0,
+                "sample_steps": 32,
+                "if_sr": False
             }
             
-            # 发送请求到llm_server
+            logger.info(f"调用LLM服务器TTS: {self.llm_server_url}")
+            logger.info(f"请求参数: {request_data}")
+            
+            # 发送请求到llm_server - 使用正确的端点 /
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.llm_server_url}/tts",
+                    f"{self.llm_server_url}/",
                     json=request_data
                 )
                 
-                if response.status_code != 200:
-                    raise VoiceProcessingError(f"LLM服务器响应错误: {response.status_code}")
-                
-                # 保存生成的音频文件
-                audio_data = response.content
-                return await self._save_generated_audio(audio_data, "wav")
+                if response.status_code == 200:
+                    # 保存生成的音频文件
+                    audio_data = response.content
+                    return await self._save_generated_audio(audio_data, "wav")
+                else:
+                    logger.error(f"LLM服务器返回错误状态: {response.status_code}")
+                    error_text = response.text
+                    logger.error(f"错误信息: {error_text}")
+                    raise VoiceProcessingError(f"LLM服务器响应错误: {response.status_code} - {error_text}")
                 
         except httpx.TimeoutException:
             raise VoiceProcessingError("LLM服务器响应超时")
