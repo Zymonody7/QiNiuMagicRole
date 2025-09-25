@@ -10,6 +10,7 @@ from app.schemas.character import CharacterCreate, CharacterUpdate, CharacterRes
 from app.services.character_service import CharacterService
 from app.services.voice_service import VoiceService
 from app.services.static_asset_service import static_asset_service
+from app.services.qiniu_asr_service import qiniu_asr_service
 from app.models.character import Character
 import os
 import uuid
@@ -154,27 +155,52 @@ async def update_character_with_audio(
         asr_text = reference_audio_text
         
         if reference_audio and reference_audio.filename:
-            # 使用新的文件上传处理函数
-            upload_result = await handle_file_upload(reference_audio, "reference_audio")
+            # 先上传音频文件到存储
+            upload_result = await static_asset_service.upload_reference_audio(reference_audio)
             
             if upload_result["success"]:
-                reference_audio_path = upload_result["path"]
+                reference_audio_path = upload_result["url"]
+                print(f"音频文件上传成功: {reference_audio_path}")
                 
                 # 如果用户没有输入音频文本，尝试使用ASR自动提取
                 if not reference_audio_text or reference_audio_text.strip() == "":
                     try:
-                        # 对于七牛云存储，需要下载文件进行ASR处理
-                        if upload_result["storage"] == "qiniu":
-                            # 这里可以实现下载文件进行ASR处理
-                            # 或者直接跳过ASR，让用户手动输入
-                            asr_text = ""
+                        # 优先使用七牛云ASR服务
+                        if qiniu_asr_service.is_enabled():
+                            print("使用七牛云ASR服务处理音频")
+                            # 使用已上传的音频URL进行ASR
+                            asr_text = await qiniu_asr_service.speech_to_text(
+                                reference_audio_path, 
+                                reference_audio_language
+                            )
+                            print(f"七牛云ASR提取文本成功: {asr_text}")
                         else:
-                            # 本地存储，直接使用文件路径
-                            file_path = os.path.join(settings.UPLOAD_DIR, "reference_audios", upload_result["key"])
-                            asr_text = await voice_service.speech_to_text(file_path, reference_audio_language)
+                            # 回退到本地ASR服务
+                            print("七牛云ASR服务不可用，使用本地ASR处理")
+                            # 保存临时文件
+                            temp_filename = f"temp_asr_{uuid.uuid4().hex}"
+                            file_extension = os.path.splitext(reference_audio.filename)[1] if reference_audio.filename else ".wav"
+                            temp_path = f"{temp_filename}{file_extension}"
+                            
+                            try:
+                                # 保存文件
+                                with open(temp_path, "wb") as buffer:
+                                    content = await reference_audio.read()
+                                    buffer.write(content)
+                                
+                                # 使用本地ASR服务
+                                asr_text = await voice_service.speech_to_text(temp_path, reference_audio_language)
+                                print(f"本地ASR提取文本成功: {asr_text}")
+                            finally:
+                                # 清理临时文件
+                                if os.path.exists(temp_path):
+                                    try:
+                                        os.remove(temp_path)
+                                    except Exception as e:
+                                        print(f"清理临时文件失败: {e}")
                     except Exception as asr_error:
                         print(f"ASR处理异常: {str(asr_error)}")
-                        asr_text = ""
+                        asr_text = ""  # ASR失败时保持为空
             else:
                 raise HTTPException(status_code=400, detail=f"音频文件上传失败: {upload_result['error']}")
         
@@ -269,26 +295,49 @@ async def create_character_with_audio(
         asr_text = reference_audio_text  # 默认使用用户输入的文本
         
         if reference_audio and reference_audio.filename:
-            # 使用新的静态资源服务上传音频
+            # 先上传音频文件到存储
             upload_result = await static_asset_service.upload_reference_audio(reference_audio)
             
             if upload_result["success"]:
                 reference_audio_path = upload_result["url"]
+                print(f"音频文件上传成功: {reference_audio_path}")
                 
                 # 如果用户没有输入音频文本，尝试使用ASR自动提取
                 if not reference_audio_text or reference_audio_text.strip() == "":
                     try:
-                        # 对于七牛云存储，需要下载文件进行ASR处理
-                        if upload_result["storage"] == "qiniu":
-                            # 这里可以实现下载文件进行ASR处理
-                            # 或者直接跳过ASR，让用户手动输入
-                            asr_text = ""
+                        # 优先使用七牛云ASR服务
+                        if qiniu_asr_service.is_enabled():
+                            print("使用七牛云ASR服务处理音频")
+                            # 使用已上传的音频URL进行ASR
+                            asr_text = await qiniu_asr_service.speech_to_text(
+                                reference_audio_path, 
+                                reference_audio_language
+                            )
+                            print(f"七牛云ASR提取文本成功: {asr_text}")
                         else:
-                            # 本地存储，直接使用文件路径
-                            file_path = os.path.join(settings.UPLOAD_DIR, "reference_audios", upload_result["key"])
-                            print(f"开始ASR处理音频: {file_path}")
-                            asr_text = await voice_service.speech_to_text(file_path, reference_audio_language)
-                            print(f"ASR提取文本成功: {asr_text}")
+                            # 回退到本地ASR服务
+                            print("七牛云ASR服务不可用，使用本地ASR处理")
+                            # 保存临时文件
+                            temp_filename = f"temp_asr_{uuid.uuid4().hex}"
+                            file_extension = os.path.splitext(reference_audio.filename)[1] if reference_audio.filename else ".wav"
+                            temp_path = f"{temp_filename}{file_extension}"
+                            
+                            try:
+                                # 保存文件
+                                with open(temp_path, "wb") as buffer:
+                                    content = await reference_audio.read()
+                                    buffer.write(content)
+                                
+                                # 使用本地ASR服务
+                                asr_text = await voice_service.speech_to_text(temp_path, reference_audio_language)
+                                print(f"本地ASR提取文本成功: {asr_text}")
+                            finally:
+                                # 清理临时文件
+                                if os.path.exists(temp_path):
+                                    try:
+                                        os.remove(temp_path)
+                                    except Exception as e:
+                                        print(f"清理临时文件失败: {e}")
                     except Exception as asr_error:
                         print(f"ASR处理异常: {str(asr_error)}")
                         asr_text = ""  # ASR失败时保持为空
@@ -338,50 +387,97 @@ async def create_character_with_audio(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"创建角色失败: {str(e)}")
 
-@router.post("/transcribe-audio")
-async def transcribe_character_audio(
-    reference_audio: UploadFile = File(...),
+
+@router.post("/qiniu-asr")
+async def qiniu_asr_transcribe(
+    audio_file: UploadFile = File(...),
     language: str = Form("zh"),
     db: AsyncSession = Depends(get_db)
 ):
-    """为角色音频进行ASR转录"""
+    """使用七牛云ASR进行音频转录"""
     try:
-        voice_service = VoiceService()
-        
         # 验证文件类型
-        if not reference_audio.content_type.startswith('audio/'):
+        if not audio_file.content_type.startswith('audio/'):
             raise HTTPException(status_code=400, detail="请上传音频文件")
         
-        # 保存临时文件
-        temp_filename = f"temp_asr_{uuid.uuid4().hex}"
-        file_extension = os.path.splitext(reference_audio.filename)[1] if reference_audio.filename else ".wav"
-        temp_path = f"{temp_filename}{file_extension}"
+        # 检查ASR服务是否可用
+        if not qiniu_asr_service.is_enabled():
+            raise HTTPException(
+                status_code=503, 
+                detail="七牛云ASR服务未启用，请配置QINIU_AI_API_KEY环境变量"
+            )
         
-        try:
-            # 保存文件
-            with open(temp_path, "wb") as buffer:
-                content = await reference_audio.read()
-                buffer.write(content)
-            
-            # 执行ASR转录
-            transcribed_text = await voice_service.speech_to_text(temp_path, language)
-            
-            return {
-                "success": True,
-                "transcribed_text": transcribed_text,
-                "language": language,
-                "message": "音频转录成功"
-            }
-            
-        finally:
-            # 清理临时文件
-            if os.path.exists(temp_path):
-                try:
-                    os.remove(temp_path)
-                except Exception as e:
-                    print(f"清理临时文件失败: {e}")
-                    
+        # 读取文件内容
+        file_content = await audio_file.read()
+        
+        # 调用七牛云ASR服务
+        transcribed_text = await qiniu_asr_service.speech_to_text_from_file(
+            file_content, 
+            audio_file.filename or "audio.wav", 
+            language
+        )
+        
+        return {
+            "success": True,
+            "transcribed_text": transcribed_text,
+            "language": language,
+            "filename": audio_file.filename,
+            "message": "音频转录成功"
+        }
+        
     except HTTPException:
         raise
     except Exception as e:
+        # logger.error(f"七牛云ASR转录失败: {e}")
+        print(f"七牛云ASR转录失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"音频转录失败: {str(e)}")
+
+@router.get("/qiniu-asr-status")
+async def get_qiniu_asr_status(db: AsyncSession = Depends(get_db)):
+    """获取七牛云ASR服务状态"""
+    try:
+        status = qiniu_asr_service.get_service_status()
+        return {
+            "success": True,
+            "data": status,
+            "message": "服务状态获取成功"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "获取服务状态失败"
+        }
+
+@router.post("/qiniu-asr-test")
+async def test_qiniu_asr(
+    audio_url: str = Form(...),
+    language: str = Form("zh"),
+    db: AsyncSession = Depends(get_db)
+):
+    """测试七牛云ASR服务"""
+    try:
+        if not qiniu_asr_service.is_enabled():
+            return {
+                "success": False,
+                "message": "七牛云ASR服务未启用",
+                "error": "请配置QINIU_API_KEY环境变量"
+            }
+        
+        # 调用七牛云ASR服务
+        transcribed_text = await qiniu_asr_service.speech_to_text(audio_url, language)
+        
+        return {
+            "success": True,
+            "transcribed_text": transcribed_text,
+            "language": language,
+            "audio_url": audio_url,
+            "message": "七牛云ASR测试成功"
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "七牛云ASR测试失败"
+        }

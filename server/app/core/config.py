@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     QINIU_DOMAIN: str = ""
     QINIU_USE_HTTPS: bool = True
     
+    # 七牛云AI API配置
+    QINIU_AI_API_KEY: Optional[str] = None
+    QINIU_AI_BASE_URL: str = "https://openai.qiniu.com/v1"
+    QINIU_AI_BACKUP_URL: str = "https://api.qnaigc.com/v1"
+    
     # 安全配置
     SECRET_KEY: str = "your-secret-key-here"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30

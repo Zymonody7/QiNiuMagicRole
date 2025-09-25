@@ -140,19 +140,22 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
     
     setAsrProcessing(true);
     try {
-      const result = await apiService.transcribeAudio(audioFile, formData.referenceAudioLanguage);
+      const result = await apiService.qiniuASRTranscribe(audioFile, formData.referenceAudioLanguage);
       
       if (result.success && result.transcribed_text) {
         setFormData(prev => ({ 
           ...prev, 
           referenceAudioText: result.transcribed_text 
         }));
-        console.log('ASR转录成功:', result.transcribed_text);
+        console.log('七牛云ASR转录成功:', result.transcribed_text);
+        alert('音频转录成功！已自动填充参考文本。');
       } else {
         console.log('ASR转录失败:', result.message);
+        alert('音频转录失败，请手动输入参考文本。');
       }
     } catch (error) {
       console.error('ASR转录错误:', error);
+      alert('音频转录出错，请手动输入参考文本。');
     } finally {
       setAsrProcessing(false);
     }

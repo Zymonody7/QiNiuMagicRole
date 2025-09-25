@@ -124,12 +124,33 @@ class ApiService {
     }
   }
 
-  async transcribeAudio(audioFile: File, language: string = 'zh'): Promise<{ success: boolean; transcribed_text: string; message: string }> {
+  async qiniuASRTranscribe(audioFile: File, language: string = 'zh'): Promise<{ success: boolean; transcribed_text: string; message: string; filename?: string }> {
     const formData = new FormData();
-    formData.append('reference_audio', audioFile);
+    formData.append('audio_file', audioFile);
     formData.append('language', language);
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/characters/transcribe-audio`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/characters/qiniu-asr`, {
+      method: 'POST',
+      headers: {
+        ...(this.token && { Authorization: `Bearer ${this.token}` }),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  async testQiniuASR(audioUrl: string, language: string = 'zh'): Promise<{ success: boolean; transcribed_text: string; message: string; error?: string }> {
+    const formData = new FormData();
+    formData.append('audio_url', audioUrl);
+    formData.append('language', language);
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/characters/qiniu-asr-test`, {
       method: 'POST',
       headers: {
         ...(this.token && { Authorization: `Bearer ${this.token}` }),

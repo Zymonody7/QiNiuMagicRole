@@ -217,8 +217,17 @@ class QiniuService:
         if not self.enabled:
             raise Exception("七牛云服务未启用")
         
-        protocol = "https" if self.use_https else "http"
-        return f"{protocol}://{self.domain}/{key}"
+        # 检查域名是否已经包含协议
+        if self.domain.startswith(('http://', 'https://')):
+            # 强制使用http协议（因为ASR服务可能需要http）
+            if self.domain.startswith('https://'):
+                domain = self.domain.replace('https://', 'http://')
+            else:
+                domain = self.domain
+            return f"{domain}/{key}"
+        else:
+            # 使用http协议
+            return f"http://{self.domain}/{key}"
     
     def get_private_url(self, key: str, expires: int = 3600) -> str:
         """
