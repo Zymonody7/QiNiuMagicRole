@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.api.v1.api import api_router
 from app.core.middleware import setup_exception_handlers
+from app.api.v1.endpoints.voice_chat import router as voice_chat_router
 
 # 加载环境变量
 load_dotenv()
@@ -30,7 +31,7 @@ async def lifespan(app: FastAPI):
 
 # 创建FastAPI应用
 app = FastAPI(
-    title="七牛幻角API",
+    title="奇牛幻角API",
     description="基于AI的角色扮演对话系统，支持语音交互",
     version="1.0.0",
     lifespan=lifespan
@@ -45,11 +46,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# CORS已配置，支持WebSocket连接
+
 # 设置异常处理器
 setup_exception_handlers(app)
 
 # 包含API路由
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# 直接包含WebSocket路由（不需要API前缀）
+app.include_router(voice_chat_router)
 
 # 静态文件服务
 if not os.path.exists("static"):

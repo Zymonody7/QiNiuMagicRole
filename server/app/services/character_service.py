@@ -66,6 +66,11 @@ class CharacterService:
             reference_audio_path=character_data.reference_audio_path,
             reference_audio_text=character_data.reference_audio_text,
             reference_audio_language=character_data.reference_audio_language,
+            # 存储信息
+            storage_type=getattr(character_data, 'storage_type', 'local'),
+            storage_key=getattr(character_data, 'storage_key', None),
+            file_size=getattr(character_data, 'file_size', None),
+            mime_type=getattr(character_data, 'mime_type', None),
             category=character_data.category,
             tags=character_data.tags or [],
             is_custom=True,

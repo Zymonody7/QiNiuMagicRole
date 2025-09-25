@@ -9,6 +9,7 @@ import asyncio
 from typing import Optional, Dict, Any
 from app.core.config import settings
 from app.core.exceptions import VoiceProcessingError
+from app.services.static_asset_service import static_asset_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -156,20 +157,35 @@ class TTSService:
     async def _save_generated_audio(self, audio_data: bytes, format: str = "wav") -> str:
         """保存生成的音频文件"""
         try:
-            # 确保目录存在
-            output_dir = os.path.join(settings.UPLOAD_DIR, "generated_voices")
-            os.makedirs(output_dir, exist_ok=True)
-            
             # 生成唯一文件名
             filename = f"tts_{uuid.uuid4().hex}.{format}"
-            file_path = os.path.join(output_dir, filename)
             
-            # 保存文件
-            with open(file_path, "wb") as f:
-                f.write(audio_data)
-            
-            # 返回相对路径，前端通过Next.js代理访问
-            return f"/static/uploads/generated_voices/{filename}"
+            if static_asset_service.use_qiniu:
+                # 使用七牛云存储
+                key = f"generated_voices/{filename}"
+                result = static_asset_service.qiniu_service.upload_data(
+                    data=audio_data,
+                    key=key,
+                    mime_type="audio/wav"
+                )
+                
+                if result["success"]:
+                    return result["url"]
+                else:
+                    raise VoiceProcessingError(f"七牛云上传失败: {result['error']}")
+            else:
+                # 使用本地存储
+                output_dir = os.path.join(settings.UPLOAD_DIR, "generated_voices")
+                os.makedirs(output_dir, exist_ok=True)
+                
+                file_path = os.path.join(output_dir, filename)
+                
+                # 保存文件
+                with open(file_path, "wb") as f:
+                    f.write(audio_data)
+                
+                # 返回相对路径，前端通过Next.js代理访问
+                return f"/static/uploads/generated_voices/{filename}"
             
         except Exception as e:
             raise VoiceProcessingError(f"保存音频文件失败: {str(e)}")

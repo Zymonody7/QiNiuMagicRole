@@ -20,6 +20,11 @@ class Character(Base):
     reference_audio_path = Column(String(500), nullable=True)  # 参考音频文件路径
     reference_audio_text = Column(Text, nullable=True)  # 参考音频对应的文本
     reference_audio_language = Column(String(10), nullable=True, default="zh")  # 参考音频语言
+    # 存储相关字段
+    storage_type = Column(String(20), default="local")  # 存储类型: qiniu, local
+    storage_key = Column(String(500), nullable=True)  # 存储key或路径
+    file_size = Column(Integer, nullable=True)  # 文件大小(字节)
+    mime_type = Column(String(100), nullable=True)  # MIME类型
     category = Column(String(50), nullable=False, index=True)
     tags = Column(JSON, nullable=True)  # 存储标签列表
     popularity = Column(Integer, default=0)
@@ -42,6 +47,10 @@ class Character(Base):
             "reference_audio_path": self.reference_audio_path,
             "reference_audio_text": self.reference_audio_text,
             "reference_audio_language": self.reference_audio_language,
+            "storage_type": self.storage_type,
+            "storage_key": self.storage_key,
+            "file_size": self.file_size,
+            "mime_type": self.mime_type,
             "category": self.category,
             "tags": self.tags or [],
             "popularity": self.popularity,

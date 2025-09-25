@@ -9,12 +9,52 @@ from app.core.database import get_db
 from app.schemas.character import CharacterCreate, CharacterUpdate, CharacterResponse
 from app.services.character_service import CharacterService
 from app.services.voice_service import VoiceService
+from app.services.static_asset_service import static_asset_service
 from app.models.character import Character
 import os
 import uuid
 from app.core.config import settings
 
 router = APIRouter()
+
+async def handle_character_asset_upload(file: UploadFile, asset_type: str, character_id: str = None) -> dict:
+    """
+    处理角色相关资源上传
+    
+    Args:
+        file: 上传的文件
+        asset_type: 资源类型 (avatars, reference_audios)
+        character_id: 角色ID
+        
+    Returns:
+        上传结果字典
+    """
+    if not file or not file.filename:
+        return {"success": False, "error": "没有文件"}
+    
+    try:
+        if asset_type == "avatars":
+            result = await static_asset_service.upload_character_avatar(file, character_id)
+        elif asset_type == "reference_audios":
+            result = await static_asset_service.upload_reference_audio(file, character_id)
+        else:
+            result = await static_asset_service.upload_asset(file, asset_type)
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "path": result["url"],
+                "key": result["key"],
+                "storage": result["storage"]
+            }
+        else:
+            return result
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"文件上传失败: {str(e)}"
+        }
 
 @router.get("/", response_model=List[CharacterResponse])
 async def get_characters(
@@ -114,29 +154,29 @@ async def update_character_with_audio(
         asr_text = reference_audio_text
         
         if reference_audio and reference_audio.filename:
-            # 确保上传目录存在
-            upload_dir = os.path.join(settings.UPLOAD_DIR, "reference_audios")
-            os.makedirs(upload_dir, exist_ok=True)
+            # 使用新的文件上传处理函数
+            upload_result = await handle_file_upload(reference_audio, "reference_audio")
             
-            # 生成唯一文件名
-            file_extension = os.path.splitext(reference_audio.filename)[1]
-            unique_filename = f"{uuid.uuid4().hex}{file_extension}"
-            file_path = os.path.join(upload_dir, unique_filename)
-            
-            # 保存文件
-            with open(file_path, "wb") as buffer:
-                content = await reference_audio.read()
-                buffer.write(content)
-            
-            reference_audio_path = f"/static/uploads/reference_audios/{unique_filename}"
-            
-            # 如果用户没有输入音频文本，尝试使用ASR自动提取
-            if not reference_audio_text or reference_audio_text.strip() == "":
-                try:
-                    asr_text = await voice_service.speech_to_text(file_path, reference_audio_language)
-                except Exception as asr_error:
-                    print(f"ASR处理异常: {str(asr_error)}")
-                    asr_text = ""
+            if upload_result["success"]:
+                reference_audio_path = upload_result["path"]
+                
+                # 如果用户没有输入音频文本，尝试使用ASR自动提取
+                if not reference_audio_text or reference_audio_text.strip() == "":
+                    try:
+                        # 对于七牛云存储，需要下载文件进行ASR处理
+                        if upload_result["storage"] == "qiniu":
+                            # 这里可以实现下载文件进行ASR处理
+                            # 或者直接跳过ASR，让用户手动输入
+                            asr_text = ""
+                        else:
+                            # 本地存储，直接使用文件路径
+                            file_path = os.path.join(settings.UPLOAD_DIR, "reference_audios", upload_result["key"])
+                            asr_text = await voice_service.speech_to_text(file_path, reference_audio_language)
+                    except Exception as asr_error:
+                        print(f"ASR处理异常: {str(asr_error)}")
+                        asr_text = ""
+            else:
+                raise HTTPException(status_code=400, detail=f"音频文件上传失败: {upload_result['error']}")
         
         # 解析tags
         tags_list = []
@@ -229,31 +269,31 @@ async def create_character_with_audio(
         asr_text = reference_audio_text  # 默认使用用户输入的文本
         
         if reference_audio and reference_audio.filename:
-            # 确保上传目录存在
-            upload_dir = os.path.join(settings.UPLOAD_DIR, "reference_audios")
-            os.makedirs(upload_dir, exist_ok=True)
+            # 使用新的静态资源服务上传音频
+            upload_result = await static_asset_service.upload_reference_audio(reference_audio)
             
-            # 生成唯一文件名
-            file_extension = os.path.splitext(reference_audio.filename)[1]
-            unique_filename = f"{uuid.uuid4().hex}{file_extension}"
-            file_path = os.path.join(upload_dir, unique_filename)
-            
-            # 保存文件
-            with open(file_path, "wb") as buffer:
-                content = await reference_audio.read()
-                buffer.write(content)
-            
-            reference_audio_path = f"/static/uploads/reference_audios/{unique_filename}"
-            
-            # 如果用户没有输入音频文本，尝试使用ASR自动提取
-            if not reference_audio_text or reference_audio_text.strip() == "":
-                try:
-                    print(f"开始ASR处理音频: {file_path}")
-                    asr_text = await voice_service.speech_to_text(file_path, reference_audio_language)
-                    print(f"ASR提取文本成功: {asr_text}")
-                except Exception as asr_error:
-                    print(f"ASR处理异常: {str(asr_error)}")
-                    asr_text = ""  # ASR失败时保持为空
+            if upload_result["success"]:
+                reference_audio_path = upload_result["url"]
+                
+                # 如果用户没有输入音频文本，尝试使用ASR自动提取
+                if not reference_audio_text or reference_audio_text.strip() == "":
+                    try:
+                        # 对于七牛云存储，需要下载文件进行ASR处理
+                        if upload_result["storage"] == "qiniu":
+                            # 这里可以实现下载文件进行ASR处理
+                            # 或者直接跳过ASR，让用户手动输入
+                            asr_text = ""
+                        else:
+                            # 本地存储，直接使用文件路径
+                            file_path = os.path.join(settings.UPLOAD_DIR, "reference_audios", upload_result["key"])
+                            print(f"开始ASR处理音频: {file_path}")
+                            asr_text = await voice_service.speech_to_text(file_path, reference_audio_language)
+                            print(f"ASR提取文本成功: {asr_text}")
+                    except Exception as asr_error:
+                        print(f"ASR处理异常: {str(asr_error)}")
+                        asr_text = ""  # ASR失败时保持为空
+            else:
+                raise HTTPException(status_code=400, detail=f"音频文件上传失败: {upload_result['error']}")
         
         # 解析tags
         tags_list = []
@@ -278,6 +318,13 @@ async def create_character_with_audio(
             reference_audio_language=reference_audio_language,
             tags=tags_list
         )
+        
+        # 如果有音频文件，添加存储信息
+        if reference_audio_path and upload_result.get("success"):
+            character_data.storage_type = upload_result.get("storage", "local")
+            character_data.storage_key = upload_result.get("key")
+            character_data.file_size = upload_result.get("size")
+            character_data.mime_type = reference_audio.content_type if reference_audio else None
         
         character = await character_service.create_character(character_data)
         

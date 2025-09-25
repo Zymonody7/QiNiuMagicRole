@@ -3,7 +3,7 @@ API v1 路由汇总
 """
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import characters, chat, voice, users, auth
+from app.api.v1.endpoints import characters, chat, voice, users, auth, storage, assets
 
 api_router = APIRouter()
 
@@ -36,4 +36,16 @@ api_router.include_router(
     users.router,
     prefix="/users",
     tags=["用户管理"]
+)
+
+api_router.include_router(
+    storage.router,
+    prefix="/storage",
+    tags=["存储管理"]
+)
+
+api_router.include_router(
+    assets.router,
+    prefix="/assets",
+    tags=["静态资源管理"]
 )

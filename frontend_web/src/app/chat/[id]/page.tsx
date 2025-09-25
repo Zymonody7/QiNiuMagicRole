@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Volume2, VolumeX, Settings, RotateCcw, Phone, MessageSquare } from 'lucide-react';
+import RealtimeVoiceChat from '@/components/RealtimeVoiceChat';
 import CharacterCard from '@/components/CharacterCard';
 import ChatMessage from '@/components/ChatMessage';
 import ChatInput from '@/components/ChatInput';
@@ -23,7 +24,7 @@ function ChatPage() {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
-  const [showVoiceChat, setShowVoiceChat] = useState(false);
+  const [showRealtimeVoiceChat, setShowRealtimeVoiceChat] = useState(false);
   const [autoPlayAudio, setAutoPlayAudio] = useState(true);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -291,15 +292,13 @@ function ChatPage() {
                 {autoPlayAudio ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
               </button>
               
-              <button
-                onClick={() => setShowVoiceChat(!showVoiceChat)}
-                className={`p-2 rounded-lg transition-colors ${
-                  showVoiceChat ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100'
-                }`}
-                title="语音聊天"
-              >
-                <MessageSquare className="w-5 h-5" />
-              </button>
+                <button
+                  onClick={() => setShowRealtimeVoiceChat(true)}
+                  className="p-2 rounded-lg transition-colors hover:bg-green-100 text-green-600"
+                  title="实时语音对话"
+                >
+                  <Phone className="w-5 h-5" />
+                </button>
               
               <button
                 onClick={handleClearChat}
@@ -372,6 +371,14 @@ function ChatPage() {
           />
         </div>
       </div>
+
+      {/* 实时语音聊天模态框 */}
+      {showRealtimeVoiceChat && character && (
+        <RealtimeVoiceChat
+          character={character}
+          onClose={() => setShowRealtimeVoiceChat(false)}
+        />
+      )}
     </div>
   );
 }
