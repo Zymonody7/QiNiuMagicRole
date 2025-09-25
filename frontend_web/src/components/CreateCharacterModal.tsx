@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Upload, Plus, X as XIcon } from 'lucide-react';
+import { X, Upload, Plus, X as XIcon, Mic } from 'lucide-react';
+import { apiService } from '@/services/apiService';
+import AudioRecorder from './AudioRecorder';
 
 interface CreateCharacterModalProps {
   onClose: () => void;
@@ -24,9 +26,15 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
     voiceStyle: '',
     category: '',
     tags: [] as string[],
+    referenceAudio: null as File | null,
+    referenceAudioText: '',
+    referenceAudioLanguage: 'zh',
   });
   const [newTag, setNewTag] = useState('');
   const [loading, setLoading] = useState(false);
+  const [audioPreview, setAudioPreview] = useState<string | null>(null);
+  const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
+  const [audioSource, setAudioSource] = useState<'upload' | 'record' | null>(null);
 
   const categories = [
     { id: 'literature', name: '文学' },
@@ -42,7 +50,7 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
     setLoading(true);
 
     try {
-      await onSubmit({
+      const characterData = {
         name: formData.name,
         description: formData.description,
         avatar: formData.avatar,
@@ -51,10 +59,32 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
         voice_style: formData.voiceStyle,
         category: formData.category,
         tags: formData.tags,
+        reference_audio_text: formData.referenceAudioText,
+        reference_audio_language: formData.referenceAudioLanguage,
         popularity: 0,
         is_popular: false,
         is_custom: true,
-      });
+      };
+
+      // 确定要上传的音频文件
+      let audioFile = formData.referenceAudio;
+      if (audioSource === 'record' && recordingBlob) {
+        // 将录制的Blob转换为File
+        audioFile = new File([recordingBlob], 'recording.webm', { 
+          type: 'audio/webm;codecs=opus' 
+        });
+      }
+
+      // 使用新的API方法创建角色
+      const createdCharacter = await apiService.createCharacterWithAudio(
+        characterData,
+        audioFile || undefined
+      );
+      
+      await onSubmit(createdCharacter);
+    } catch (error) {
+      console.error('创建角色失败:', error);
+      alert('创建角色失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -85,6 +115,68 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
     if (e.key === 'Enter') {
       e.preventDefault();
       addTag();
+    }
+  };
+
+  const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // 检查文件类型
+      if (!file.type.startsWith('audio/')) {
+        alert('请选择音频文件');
+        return;
+      }
+      
+      // 检查文件大小 (限制为10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('音频文件大小不能超过10MB');
+        return;
+      }
+      
+      setFormData(prev => ({ ...prev, referenceAudio: file }));
+      
+      // 创建音频预览URL
+      const audioUrl = URL.createObjectURL(file);
+      setAudioPreview(audioUrl);
+    }
+  };
+
+  const removeAudio = () => {
+    setFormData(prev => ({ ...prev, referenceAudio: null, referenceAudioText: '' }));
+    if (audioPreview) {
+      URL.revokeObjectURL(audioPreview);
+      setAudioPreview(null);
+    }
+    setRecordingBlob(null);
+    setAudioSource(null);
+  };
+
+  const handleRecordingComplete = (audioBlob: Blob) => {
+    setRecordingBlob(audioBlob);
+    setAudioSource('record');
+    // 清除上传的音频
+    setFormData(prev => ({ ...prev, referenceAudio: null }));
+    if (audioPreview) {
+      URL.revokeObjectURL(audioPreview);
+      setAudioPreview(null);
+    }
+  };
+
+  const handleRecordingClear = () => {
+    setRecordingBlob(null);
+    setAudioSource(null);
+  };
+
+  const setAudioSourceType = (source: 'upload' | 'record') => {
+    setAudioSource(source);
+    if (source === 'upload') {
+      setRecordingBlob(null);
+    } else {
+      setFormData(prev => ({ ...prev, referenceAudio: null }));
+      if (audioPreview) {
+        URL.revokeObjectURL(audioPreview);
+        setAudioPreview(null);
+      }
     }
   };
 
@@ -210,6 +302,133 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
               onChange={(e) => handleInputChange('voiceStyle', e.target.value)}
               placeholder="描述角色的语音特点，如：年轻、充满活力、英国口音"
             />
+          </div>
+
+          {/* 参考音频上传 */}
+          <div>
+            <Label>参考音频</Label>
+            <div className="space-y-3">
+              {/* 音频来源选择 */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={audioSource === 'upload' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAudioSourceType('upload')}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  上传音频
+                </Button>
+                <Button
+                  type="button"
+                  variant={audioSource === 'record' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAudioSourceType('record')}
+                >
+                  <Mic className="w-4 h-4 mr-2" />
+                  录制音频
+                </Button>
+                {(formData.referenceAudio || recordingBlob) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={removeAudio}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    删除音频
+                  </Button>
+                )}
+              </div>
+
+              {/* 上传音频 */}
+              {audioSource === 'upload' && (
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleAudioUpload}
+                    className="hidden"
+                    id="audio-upload"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('audio-upload')?.click()}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    选择音频文件
+                  </Button>
+                </div>
+              )}
+
+              {/* 录制音频 */}
+              {audioSource === 'record' && (
+                <AudioRecorder
+                  onRecordingComplete={handleRecordingComplete}
+                  onClear={handleRecordingClear}
+                />
+              )}
+              
+              {/* 音频预览和设置 */}
+              {(formData.referenceAudio || recordingBlob) && (
+                <div className="space-y-2">
+                  {formData.referenceAudio && (
+                    <div className="text-sm text-gray-600">
+                      已选择: {formData.referenceAudio.name} ({(formData.referenceAudio.size / 1024 / 1024).toFixed(2)}MB)
+                    </div>
+                  )}
+                  
+                  {recordingBlob && (
+                    <div className="text-sm text-gray-600">
+                      录制完成: {recordingBlob.size > 0 ? `${(recordingBlob.size / 1024).toFixed(1)}KB` : '未知大小'}
+                    </div>
+                  )}
+                  
+                  {audioPreview && (
+                    <div>
+                      <Label>音频预览</Label>
+                      <audio controls className="w-full">
+                        <source src={audioPreview} type={formData.referenceAudio?.type} />
+                        您的浏览器不支持音频播放。
+                      </audio>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <Label htmlFor="referenceAudioText">音频文本</Label>
+                    <Textarea
+                      id="referenceAudioText"
+                      value={formData.referenceAudioText}
+                      onChange={(e) => handleInputChange('referenceAudioText', e.target.value)}
+                      placeholder="请输入音频中说的内容，用于语音合成训练"
+                      rows={2}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="referenceAudioLanguage">音频语言</Label>
+                    <Select 
+                      value={formData.referenceAudioLanguage} 
+                      onValueChange={(value) => handleInputChange('referenceAudioLanguage', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择语言" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="zh">中文</SelectItem>
+                        <SelectItem value="en">英文</SelectItem>
+                        <SelectItem value="ja">日文</SelectItem>
+                        <SelectItem value="ko">韩文</SelectItem>
+                        <SelectItem value="yue">粤语</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 标签 */}

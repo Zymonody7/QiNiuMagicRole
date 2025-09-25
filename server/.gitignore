@@ -9,3 +9,6 @@ __pycache__
 .env.production
 
 *.pyc
+*.wav
+/logs
+/migrations

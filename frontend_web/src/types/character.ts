@@ -10,6 +10,9 @@ export interface Character {
   personality: string;
   background: string;
   voice_style?: string;
+  reference_audio_path?: string;
+  reference_audio_text?: string;
+  reference_audio_language?: string;
   category: string;
   tags: string[];
   popularity: number;
@@ -50,6 +53,9 @@ export interface CharacterCreateRequest {
   personality: string;
   background: string;
   voice_style?: string;
+  reference_audio_path?: string;
+  reference_audio_text?: string;
+  reference_audio_language?: string;
   category: string;
   tags?: string[];
 }
@@ -61,6 +67,9 @@ export interface CharacterUpdateRequest {
   personality?: string;
   background?: string;
   voice_style?: string;
+  reference_audio_path?: string;
+  reference_audio_text?: string;
+  reference_audio_language?: string;
   category?: string;
   tags?: string[];
   popularity?: number;

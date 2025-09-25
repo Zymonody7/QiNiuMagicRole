@@ -64,6 +64,48 @@ class ApiService {
     });
   }
 
+  async createCharacterWithAudio(
+    characterData: Partial<Character>,
+    audioFile?: File
+  ): Promise<Character> {
+    if (audioFile) {
+      // 如果有音频文件，使用FormData上传
+      const formData = new FormData();
+      
+      // 添加角色数据
+      Object.entries(characterData).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (key === 'tags' && Array.isArray(value)) {
+            formData.append(key, JSON.stringify(value));
+          } else {
+            formData.append(key, String(value));
+          }
+        }
+      });
+      
+      // 添加音频文件
+      formData.append('reference_audio', audioFile);
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/characters/with-audio`, {
+        method: 'POST',
+        headers: {
+          ...(this.token && { Authorization: `Bearer ${this.token}` }),
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      }
+
+      return response.json();
+    } else {
+      // 没有音频文件，使用普通JSON请求
+      return this.createCharacter(characterData);
+    }
+  }
+
   async updateCharacter(characterId: string, characterData: Partial<Character>): Promise<Character> {
     return this.request<Character>(`/characters/${characterId}`, {
       method: 'PUT',

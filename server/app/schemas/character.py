@@ -14,6 +14,9 @@ class CharacterBase(BaseModel):
     personality: str = Field(..., description="角色性格")
     background: str = Field(..., description="角色背景")
     voice_style: Optional[str] = Field(None, description="语音风格")
+    reference_audio_path: Optional[str] = Field(None, description="参考音频文件路径")
+    reference_audio_text: Optional[str] = Field(None, description="参考音频对应的文本")
+    reference_audio_language: Optional[str] = Field(default="zh", description="参考音频语言")
     category: str = Field(..., description="角色分类")
     tags: Optional[List[str]] = Field(default=[], description="角色标签")    
 
@@ -29,6 +32,9 @@ class CharacterUpdate(BaseModel):
     personality: Optional[str] = None
     background: Optional[str] = None
     voice_style: Optional[str] = None
+    reference_audio_path: Optional[str] = None
+    reference_audio_text: Optional[str] = None
+    reference_audio_language: Optional[str] = None
     category: Optional[str] = None
     tags: Optional[List[str]] = None
     popularity: Optional[int] = None

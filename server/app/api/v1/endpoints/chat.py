@@ -10,6 +10,8 @@ from app.core.auth import get_current_active_user, get_current_user, get_current
 from app.schemas.chat import ChatMessageResponse, ChatSessionResponse, ChatRequest, ChatResponse
 from app.services.chat_service import ChatService
 from app.services.ai_service import AIService
+from app.services.tts_service import TTSService
+from app.services.character_service import CharacterService
 from app.core.exceptions import CharacterNotFoundError, ChatSessionNotFoundError, AIResponseError
 
 router = APIRouter()
@@ -23,6 +25,9 @@ async def send_message(
     """发送聊天消息"""
     chat_service = ChatService(db)
     ai_service = AIService()
+    tts_service = TTSService()
+    character_service = CharacterService(db)
+    
     print("当前用户", current_user)
     # 获取或创建聊天会话
     user_id = current_user.id if current_user else (request.user_id or "anonymous")
@@ -38,32 +43,47 @@ async def send_message(
         is_user=True,
         audio_url=request.audio_url
     )
-    # print("用户消息", user_message.to_dict())
-    # print(request.character_id)
+    
     try:
-        # return ChatResponse(
-        #     session_id=session.id,
-        #     user_message=user_message.to_dict(),
-        #     ai_message={'a':'b'},
-        #     character_id=request.character_id
-        # )
-        
         # 生成AI响应
         ai_response = await ai_service.generate_response(
             character_id=request.character_id,
             user_message=request.message,
             session_history=await chat_service.get_session_history(session.id,has_date=False)
         )
-        # print("AI响应", ai_response)
+        
+        # 获取角色信息用于语音生成
+        character = await character_service.get_character_by_id(request.character_id)
+        ai_audio_url = None
+        
+        if character and character.reference_audio_path:
+            try:
+                # 使用角色的参考音频生成语音
+                character_data = {
+                    "reference_audio_path": character.reference_audio_path,
+                    "reference_audio_text": character.reference_audio_text,
+                    "reference_audio_language": character.reference_audio_language
+                }
+                
+                ai_audio_url = await tts_service.generate_voice(
+                    text=ai_response["content"],
+                    character_id=request.character_id,
+                    character_data=character_data,
+                    text_language="zh"
+                )
+                print(f"生成语音成功: {ai_audio_url}")
+                
+            except Exception as e:
+                print(f"语音生成失败: {str(e)}")
+                # 语音生成失败不影响聊天，继续使用文本响应
         
         # 保存AI响应
         ai_message = await chat_service.add_message(
             session_id=session.id,
             content=ai_response["content"],
             is_user=False,
-            audio_url=ai_response.get("audio_url")
+            audio_url=ai_audio_url
         )
-        # print("AI消息", ai_message)
         
         return ChatResponse(
             session_id=session.id,

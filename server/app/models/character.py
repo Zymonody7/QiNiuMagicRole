@@ -17,6 +17,9 @@ class Character(Base):
     personality = Column(Text, nullable=False)
     background = Column(Text, nullable=False)
     voice_style = Column(String(200), nullable=True)
+    reference_audio_path = Column(String(500), nullable=True)  # 参考音频文件路径
+    reference_audio_text = Column(Text, nullable=True)  # 参考音频对应的文本
+    reference_audio_language = Column(String(10), nullable=True, default="zh")  # 参考音频语言
     category = Column(String(50), nullable=False, index=True)
     tags = Column(JSON, nullable=True)  # 存储标签列表
     popularity = Column(Integer, default=0)
@@ -36,6 +39,9 @@ class Character(Base):
             "personality": self.personality,
             "background": self.background,
             "voice_style": self.voice_style,
+            "reference_audio_path": self.reference_audio_path,
+            "reference_audio_text": self.reference_audio_text,
+            "reference_audio_language": self.reference_audio_language,
             "category": self.category,
             "tags": self.tags or [],
             "popularity": self.popularity,

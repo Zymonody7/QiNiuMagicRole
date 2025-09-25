@@ -2,13 +2,16 @@
 角色管理API端点
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.schemas.character import CharacterCreate, CharacterUpdate, CharacterResponse
 from app.services.character_service import CharacterService
 from app.models.character import Character
+import os
+import uuid
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -116,3 +119,71 @@ async def get_popular_characters(
         return characters
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取热门角色失败: {str(e)}")
+
+@router.post("/with-audio", response_model=CharacterResponse)
+async def create_character_with_audio(
+    name: str = Form(...),
+    description: str = Form(...),
+    personality: str = Form(...),
+    background: str = Form(...),
+    category: str = Form(...),
+    avatar: Optional[str] = Form(None),
+    voice_style: Optional[str] = Form(None),
+    reference_audio_text: Optional[str] = Form(None),
+    reference_audio_language: Optional[str] = Form("zh"),
+    tags: Optional[str] = Form(None),  # JSON字符串
+    reference_audio: Optional[UploadFile] = File(None),
+    db: AsyncSession = Depends(get_db)
+):
+    """创建带音频的角色"""
+    try:
+        character_service = CharacterService(db)
+        
+        # 处理音频文件
+        reference_audio_path = None
+        if reference_audio and reference_audio.filename:
+            # 确保上传目录存在
+            upload_dir = os.path.join(settings.UPLOAD_DIR, "reference_audios")
+            os.makedirs(upload_dir, exist_ok=True)
+            
+            # 生成唯一文件名
+            file_extension = os.path.splitext(reference_audio.filename)[1]
+            unique_filename = f"{uuid.uuid4().hex}{file_extension}"
+            file_path = os.path.join(upload_dir, unique_filename)
+            
+            # 保存文件
+            with open(file_path, "wb") as buffer:
+                content = await reference_audio.read()
+                buffer.write(content)
+            
+            reference_audio_path = f"/static/uploads/reference_audios/{unique_filename}"
+        
+        # 解析tags
+        tags_list = []
+        if tags:
+            try:
+                import json
+                tags_list = json.loads(tags)
+            except:
+                tags_list = []
+        
+        # 创建角色数据
+        character_data = CharacterCreate(
+            name=name,
+            description=description,
+            personality=personality,
+            background=background,
+            category=category,
+            avatar=avatar,
+            voice_style=voice_style,
+            reference_audio_path=reference_audio_path,
+            reference_audio_text=reference_audio_text,
+            reference_audio_language=reference_audio_language,
+            tags=tags_list
+        )
+        
+        character = await character_service.create_character(character_data)
+        return character
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建角色失败: {str(e)}")

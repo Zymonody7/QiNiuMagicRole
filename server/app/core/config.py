@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     TTS_LANGUAGE: str = "zh"
     TTS_SPEED: float = 1.0
     
+    # LLM服务器配置
+    LLM_SERVER_URL: str = "http://localhost:9880"
+    
     # 文件存储配置
     UPLOAD_DIR: str = "static/uploads"
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
