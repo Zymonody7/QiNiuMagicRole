@@ -7,8 +7,12 @@ export class ChatService {
     characterId: string,
     message: string,
     sessionId: string
-  ): Promise<string> {
+  ): Promise<any> {
     try {
+      // 创建超时控制器 - 10分钟超时
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分钟
+      
       const response = await fetch(`${this.baseUrl}/chat/message`, {
         method: 'POST',
         headers: {
@@ -19,7 +23,10 @@ export class ChatService {
           message,
           session_id: sessionId,
         }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -27,8 +34,17 @@ export class ChatService {
 
       const data = await response.json();
       
-      return data.ai_message.content;
+      // 返回完整的响应数据，包含音频URL
+      return {
+        content: data.ai_message.content,
+        audioUrl: data.ai_message.audioUrl,
+        ai_message: data.ai_message
+      };
     } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('请求超时，语音生成可能需要更长时间，请稍后重试');
+      }
       console.error('发送消息失败:', error);
       throw error;
     }

@@ -3,31 +3,81 @@
 import { ChatMessage as ChatMessageType } from '@/types/character';
 import { motion } from 'framer-motion';
 import { User, Bot, Volume2, VolumeX } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ChatMessageProps {
   message: ChatMessageType;
-  characterName: string;
-  characterAvatar: string;
+  characterName?: string;
+  characterAvatar?: string;
+  character?: any;
   onPlayAudio?: (audioUrl: string) => void;
+  autoPlay?: boolean;
 }
 
 export default function ChatMessage({ 
   message, 
   characterName, 
   characterAvatar, 
-  onPlayAudio 
+  character,
+  onPlayAudio,
+  autoPlay = false
 }: ChatMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+
+  // 获取角色信息
+  const displayName = characterName || character?.name || 'AI助手';
+  const displayAvatar = characterAvatar || character?.avatar || '/default-avatar.svg';
 
   const handlePlayAudio = () => {
-    if (message.audioUrl && onPlayAudio) {
+    if (message.audioUrl) {
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.currentTime = 0;
+      }
+      
+      const audio = new Audio(message.audioUrl);
+      setAudioElement(audio);
       setIsPlaying(true);
-      onPlayAudio(message.audioUrl);
-      // 模拟播放完成
-      setTimeout(() => setIsPlaying(false), 3000);
+      
+      audio.onended = () => {
+        setIsPlaying(false);
+        setAudioElement(null);
+      };
+      
+      audio.onerror = () => {
+        setIsPlaying(false);
+        setAudioElement(null);
+        console.error('音频播放失败');
+      };
+      
+      audio.play().catch(error => {
+        console.error('音频播放失败:', error);
+        setIsPlaying(false);
+        setAudioElement(null);
+      });
     }
   };
+
+  const handleStopAudio = () => {
+    if (audioElement) {
+      audioElement.pause();
+      audioElement.currentTime = 0;
+      setAudioElement(null);
+    }
+    setIsPlaying(false);
+  };
+
+  // 自动播放功能
+  useEffect(() => {
+    if (autoPlay && message.audioUrl && !message.isUser) {
+      const timer = setTimeout(() => {
+        handlePlayAudio();
+      }, 500); // 延迟500ms播放，让消息先显示
+      
+      return () => clearTimeout(timer);
+    }
+  }, [autoPlay, message.audioUrl, message.isUser]);
 
   return (
     <motion.div
@@ -44,8 +94,8 @@ export default function ChatMessage({
         ) : (
           <div className="w-8 h-8 rounded-full overflow-hidden">
             <img
-              src={characterAvatar}
-              alt={characterName}
+              src={displayAvatar}
+              alt={displayName}
               className="w-full h-full object-cover"
             />
           </div>
@@ -64,16 +114,15 @@ export default function ChatMessage({
         {!message.isUser && message.audioUrl && (
           <div className="mt-2 flex items-center gap-2">
             <button
-              onClick={handlePlayAudio}
-              disabled={isPlaying}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+              onClick={isPlaying ? handleStopAudio : handlePlayAudio}
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
             >
               {isPlaying ? (
                 <VolumeX className="w-3 h-3" />
               ) : (
                 <Volume2 className="w-3 h-3" />
               )}
-              <span>{isPlaying ? '播放中...' : '播放语音'}</span>
+              <span>{isPlaying ? '停止播放' : '播放语音'}</span>
             </button>
           </div>
         )}

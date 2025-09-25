@@ -18,7 +18,7 @@ class TTSService:
     
     def __init__(self):
         self.llm_server_url = settings.LLM_SERVER_URL
-        self.timeout = 30.0  # 30秒超时
+        self.timeout = 600.0  # 600秒超时
     
     async def generate_voice(
         self,
@@ -168,7 +168,7 @@ class TTSService:
             with open(file_path, "wb") as f:
                 f.write(audio_data)
             
-            # 返回可访问的URL
+            # 返回相对路径，前端通过Next.js代理访问
             return f"/static/uploads/generated_voices/{filename}"
             
         except Exception as e:

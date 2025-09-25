@@ -22,6 +22,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const [showVoiceChat, setShowVoiceChat] = useState(false);
+  const [autoPlayAudio, setAutoPlayAudio] = useState(true);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -70,7 +71,8 @@ export default function ChatPage() {
           content: msg.content,
           isUser: msg.is_user,
           timestamp: new Date(msg.created_at),
-          characterId: characterData.id
+          characterId: characterData.id,
+          audioUrl: msg.audio_url
         }));
         
         setMessages(formattedMessages);
@@ -126,20 +128,29 @@ export default function ChatPage() {
       setIsLoading(true);
       const response = await ChatService.sendMessage(character.id, content, sessionId);
       
+      // 检查响应是否包含音频URL
       const aiMessage: ChatMessageType = {
         id: `ai_${Date.now()}`,
-        content: response,
+        content: response.content || response,
         isUser: false,
         timestamp: new Date(),
-        characterId: character.id
+        characterId: character.id,
+        audioUrl: response.audioUrl || response.ai_message?.audioUrl
       };
 
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error('发送消息失败:', error);
+      
+      // 根据错误类型显示不同的提示
+      let errorContent = '抱歉，我暂时无法回复您的消息。请稍后再试。';
+      if (error.message && error.message.includes('超时')) {
+        errorContent = '语音生成需要较长时间，请稍后重试。如果问题持续，请检查网络连接。';
+      }
+      
       const errorMessage: ChatMessageType = {
         id: `error_${Date.now()}`,
-        content: '抱歉，我暂时无法回复您的消息。请稍后再试。',
+        content: errorContent,
         isUser: false,
         timestamp: new Date(),
         characterId: character.id
@@ -265,6 +276,16 @@ export default function ChatPage() {
             
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setAutoPlayAudio(!autoPlayAudio)}
+                className={`p-2 rounded-lg transition-colors ${
+                  autoPlayAudio ? 'bg-green-100 text-green-600' : 'hover:bg-gray-100'
+                }`}
+                title={autoPlayAudio ? '关闭自动播放' : '开启自动播放'}
+              >
+                {autoPlayAudio ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+              </button>
+              
+              <button
                 onClick={() => setShowVoiceChat(!showVoiceChat)}
                 className={`p-2 rounded-lg transition-colors ${
                   showVoiceChat ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100'
@@ -301,6 +322,7 @@ export default function ChatPage() {
                 <ChatMessage
                   message={message}
                   character={character}
+                  autoPlay={autoPlayAudio && message.id.startsWith('ai_')}
                 />
               </motion.div>
             ))}
@@ -313,10 +335,16 @@ export default function ChatPage() {
               className="flex justify-start mb-4"
             >
               <div className="bg-gray-100 rounded-lg p-4 max-w-xs">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className="flex items-center space-x-2">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                  <span className="text-sm text-gray-600">正在生成回复和语音...</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  语音生成可能需要几分钟，请耐心等待
                 </div>
               </div>
             </motion.div>

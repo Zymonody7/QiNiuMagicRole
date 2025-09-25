@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     # LLM服务器配置
     LLM_SERVER_URL: str = "http://localhost:9880"
     
+    # 服务器配置
+    SERVER_URL: str = "http://localhost:8000"
+    
     # 文件存储配置
     UPLOAD_DIR: str = "static/uploads"
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB

@@ -29,6 +29,7 @@ export interface ChatMessage {
   isUser: boolean;
   timestamp: Date;
   characterId: string;
+  audioUrl?: string;
 }
 
 export interface ChatSession {

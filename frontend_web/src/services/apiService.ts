@@ -14,7 +14,8 @@ class ApiService {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    timeout: number = 600000 // 默认10分钟超时
   ): Promise<T> {
     const url = `${API_BASE_URL}/api/v1${endpoint}`;
     
@@ -27,14 +28,31 @@ class ApiService {
       ...options,
     };
 
-    const response = await fetch(url, config);
+    // 创建超时控制器
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+      const response = await fetch(url, {
+        ...config,
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(`请求超时 (${timeout/1000}秒)`);
+      }
+      throw error;
     }
-
-    return response.json();
   }
 
   // 角色相关API
