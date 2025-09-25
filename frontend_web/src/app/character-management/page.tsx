@@ -13,8 +13,9 @@ import CreateCharacterModal from '@/components/CreateCharacterModal';
 import EditCharacterModal from '@/components/EditCharacterModal';
 import CharacterDetailModal from '@/components/CharacterDetailModal';
 import { apiService } from '@/services/apiService';
+import { withAuth } from '@/components/withAuth';
 
-export default function CharacterManagementPage() {
+function CharacterManagementPage() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [filteredCharacters, setFilteredCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
@@ -311,3 +312,5 @@ export default function CharacterManagementPage() {
     </ErrorBoundary>
   );
 }
+
+export default withAuth(CharacterManagementPage);

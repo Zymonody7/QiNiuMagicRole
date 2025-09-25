@@ -11,8 +11,10 @@ import Navigation from '@/components/Navigation';
 import { Character, ChatMessage as ChatMessageType, ChatSession } from '@/types/character';
 import { apiService } from '@/services/apiService';
 import { ChatService } from '@/services/chatService';
+import { useAuth } from '@/contexts/AuthContext';
+import { withAuth } from '@/components/withAuth';
 
-export default function ChatPage() {
+function ChatPage() {
   const params = useParams();
   const router = useRouter();
   const characterId = params.id as string;
@@ -373,3 +375,5 @@ export default function ChatPage() {
     </div>
   );
 }
+
+export default withAuth(ChatPage);

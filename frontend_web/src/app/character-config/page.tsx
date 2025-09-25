@@ -6,6 +6,7 @@ import { ArrowLeft, Upload, Mic, MicOff, Play, Pause, Trash2, Save, User, Settin
 import { useRouter } from 'next/navigation';
 import { ChatService } from '@/services/chatService';
 import AvatarUpload from '@/components/AvatarUpload';
+import { withAuth } from '@/components/withAuth';
 
 interface CustomCharacter {
   id: string;
@@ -18,7 +19,7 @@ interface CustomCharacter {
   voiceUrl?: string;
 }
 
-export default function CharacterConfigPage() {
+function CharacterConfigPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'voice' | 'upload'>('voice');
   const [isRecording, setIsRecording] = useState(false);
@@ -485,3 +486,5 @@ export default function CharacterConfigPage() {
     </div>
   );
 }
+
+export default withAuth(CharacterConfigPage);

@@ -9,6 +9,7 @@ import SearchBar from '@/components/SearchBar';
 import CategoryFilter from '@/components/CategoryFilter';
 import UserMenu from '@/components/UserMenu';
 import Navigation from '@/components/Navigation';
+import HomePageWrapper from '@/components/HomePageWrapper';
 import { Character } from '@/types/character';
 import { apiService } from '@/services/apiService';
 import { useRouter } from 'next/navigation';
@@ -98,8 +99,9 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <Navigation />
+    <HomePageWrapper>
+      <div className="min-h-screen">
+        <Navigation />
 
       {/* Hero Section */}
       <section className="py-12 px-4 sm:px-6 lg:px-8">
@@ -295,6 +297,7 @@ export default function HomePage() {
           onClose={handleCloseDetail}
         />
       )}
-    </div>
+      </div>
+    </HomePageWrapper>
   );
 }
