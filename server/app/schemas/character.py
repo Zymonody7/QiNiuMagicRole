@@ -17,6 +17,11 @@ class CharacterBase(BaseModel):
     reference_audio_path: Optional[str] = Field(None, description="参考音频文件路径")
     reference_audio_text: Optional[str] = Field(None, description="参考音频对应的文本")
     reference_audio_language: Optional[str] = Field(default="zh", description="参考音频语言")
+    # 存储相关字段
+    storage_type: Optional[str] = Field(default="local", description="存储类型")
+    storage_key: Optional[str] = Field(None, description="存储key或路径")
+    file_size: Optional[int] = Field(None, description="文件大小(字节)")
+    mime_type: Optional[str] = Field(None, description="MIME类型")
     category: str = Field(..., description="角色分类")
     tags: Optional[List[str]] = Field(default=[], description="角色标签")    
 
