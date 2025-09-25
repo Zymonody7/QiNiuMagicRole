@@ -99,7 +99,7 @@ async def send_message(
 async def get_user_sessions(
     character_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user_optional)
 ):
     """获取用户的聊天会话列表"""
     chat_service = ChatService(db)

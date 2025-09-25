@@ -74,8 +74,12 @@ class ChatService:
                 selectinload(ChatSession.character),   # 你已有的
                 selectinload(ChatSession.messages)     # 再加这一行
             )
-            .where(ChatSession.user_id == user_id)
         )
+        
+        # 如果有user_id，则按用户过滤；否则获取所有会话
+        if user_id:
+            query = query.where(ChatSession.user_id == user_id)
+        
         if character_id:
             query = query.where(ChatSession.character_id == character_id)
 
@@ -137,9 +141,9 @@ class ChatService:
             {
                 "is_user": msg.is_user,
                 "content": msg.content,
-                "created_at": msg.created_at
-                # "id": msg.id,
-                # "audio_url": msg.audio_url,
+                "created_at": msg.created_at,
+                "id": msg.id,
+                "audio_url": msg.audio_url,
             } if has_date else {
                 "role": "user" if msg.is_user else "assistant",
                 "content": msg.content,

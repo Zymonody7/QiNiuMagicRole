@@ -184,7 +184,6 @@ class ApiService {
   }
 
   async getUserSessions(characterId?: string): Promise<any[]> {
-    const params = characterId ? `?character_id=${characterId}` : '';
     return this.request<any[]>(`/chat/sessions/${characterId}/session`);
   }
 

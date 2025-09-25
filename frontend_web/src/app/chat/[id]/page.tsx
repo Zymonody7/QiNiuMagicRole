@@ -64,16 +64,20 @@ export default function ChatPage() {
         
         // 获取该会话的历史消息
         const historyMessages = await apiService.getSessionMessages(latestSession.id);
+        console.log('历史消息原始数据:', historyMessages);
         
         // 转换历史消息格式
-        const formattedMessages: ChatMessageType[] = historyMessages.map((msg: any) => ({
-          id: msg.id,
-          content: msg.content,
-          isUser: msg.is_user,
-          timestamp: new Date(msg.created_at),
-          characterId: characterData.id,
-          audioUrl: msg.audio_url
-        }));
+        const formattedMessages: ChatMessageType[] = historyMessages.map((msg: any) => {
+          console.log('处理消息:', msg, 'audio_url:', msg.audio_url);
+          return {
+            id: msg.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            content: msg.content || '',
+            isUser: msg.is_user || false,
+            timestamp: new Date(msg.created_at || Date.now()),
+            characterId: characterData.id,
+            audioUrl: msg.audio_url
+          };
+        });
         
         setMessages(formattedMessages);
       } else {
@@ -322,7 +326,7 @@ export default function ChatPage() {
                 <ChatMessage
                   message={message}
                   character={character}
-                  autoPlay={autoPlayAudio && message.id.startsWith('ai_')}
+                  autoPlay={autoPlayAudio && message && message.id && message.id.startsWith('ai_')}
                 />
               </motion.div>
             ))}
@@ -344,7 +348,7 @@ export default function ChatPage() {
                   <span className="text-sm text-gray-600">正在生成回复和语音...</span>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  语音生成可能需要几分钟，请耐心等待
+                  语音生成可能需要1-2分钟，请耐心等待
                 </div>
               </div>
             </motion.div>
