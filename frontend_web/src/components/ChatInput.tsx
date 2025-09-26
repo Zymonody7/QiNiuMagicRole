@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react';
 import { Send, Mic, MicOff, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useVoice } from '@/hooks/useVoice';
+import OCRUpload from './OCRUpload';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -135,6 +136,13 @@ export default function ChatInput({
         </div>
         
         <div className="flex gap-2">
+          <OCRUpload
+            onTextRecognized={(text) => {
+              setMessage(text);
+            }}
+            disabled={disabled || isLoading}
+          />
+          
           <motion.button
             type="button"
             whileHover={{ scale: 1.05 }}

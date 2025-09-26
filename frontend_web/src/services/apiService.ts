@@ -294,6 +294,18 @@ class ApiService {
     });
   }
 
+  // OCR相关API
+  async recognizeText(imageUrl: string): Promise<{ success: boolean; text: string; id?: string; message?: string }> {
+    return this.request('/ocr/recognize', {
+      method: 'POST',
+      body: JSON.stringify({ image_url: imageUrl }),
+    });
+  }
+
+  async getOCRStatus(): Promise<{ success: boolean; status: any }> {
+    return this.request('/ocr/status');
+  }
+
 
   clearToken(): void {
     this.token = null;

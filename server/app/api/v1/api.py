@@ -3,7 +3,7 @@ API v1 路由汇总
 """
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import characters, chat, voice, voice_chat, users, auth, storage, assets
+from app.api.v1.endpoints import characters, chat, voice, voice_chat, users, auth, storage, assets, ocr
 
 api_router = APIRouter()
 
@@ -54,4 +54,10 @@ api_router.include_router(
     assets.router,
     prefix="/assets",
     tags=["静态资源管理"]
+)
+
+api_router.include_router(
+    ocr.router,
+    prefix="/ocr",
+    tags=["OCR文字识别"]
 )
