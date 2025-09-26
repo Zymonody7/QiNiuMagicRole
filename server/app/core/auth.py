@@ -82,7 +82,7 @@ async def get_current_user(
 async def get_current_active_user(current_user = Depends(get_current_user)):
     """获取当前活跃用户"""
     if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="非活跃用户")
+        raise HTTPException(status_code=403, detail="非活跃用户")
     return current_user
 
 async def get_current_user_optional(

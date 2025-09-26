@@ -5,6 +5,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.auth import get_current_active_user
 from app.services.voice_service import VoiceService
 from app.core.exceptions import VoiceProcessingError
 import os
@@ -92,9 +93,10 @@ async def process_voice_message(
     audio_file: UploadFile = File(...),
     character_id: str = Form(...),
     language: str = Form(default="zh-CN"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_active_user)
 ):
-    """处理语音消息（语音转文字 + 文字转语音）"""
+    """处理语音消息（语音转文字 + 文字转语音） - 需要用户登录"""
     temp_path = None
     try:
         voice_service = VoiceService()

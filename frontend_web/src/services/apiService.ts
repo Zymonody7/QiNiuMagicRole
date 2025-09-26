@@ -9,6 +9,18 @@ class ApiService {
     // 从localStorage恢复token
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('auth_token');
+      console.log('API Service token:', this.token ? '已设置' : '未设置');
+    }
+  }
+
+  setToken(token: string | null) {
+    this.token = token;
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem('auth_token', token);
+      } else {
+        localStorage.removeItem('auth_token');
+      }
     }
   }
 

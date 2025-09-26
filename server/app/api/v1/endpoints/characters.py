@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, 
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.auth import get_current_active_user
 from app.schemas.character import CharacterCreate, CharacterUpdate, CharacterResponse
 from app.services.character_service import CharacterService
 from app.services.voice_service import VoiceService
@@ -100,9 +101,10 @@ async def get_character_by_id(
 @router.post("/", response_model=CharacterResponse)
 async def create_character(
     character_data: CharacterCreate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_active_user)
 ):
-    """创建新角色"""
+    """创建新角色 - 需要用户登录"""
     try:
         character_service = CharacterService(db)
         character = await character_service.create_character(character_data)
@@ -114,9 +116,10 @@ async def create_character(
 async def update_character(
     character_id: str,
     character_data: CharacterUpdate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_active_user)
 ):
-    """更新角色信息"""
+    """更新角色信息 - 需要用户登录"""
     try:
         character_service = CharacterService(db)
         character = await character_service.update_character(character_id, character_data)
@@ -143,9 +146,10 @@ async def update_character_with_audio(
     reference_audio: UploadFile = File(None),
     reference_audio_text: str = Form(None),
     reference_audio_language: str = Form("zh"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_active_user)
 ):
-    """更新角色信息（支持音频文件上传）"""
+    """更新角色信息（支持音频文件上传） - 需要用户登录"""
     try:
         character_service = CharacterService(db)
         voice_service = VoiceService()
@@ -241,9 +245,10 @@ async def update_character_with_audio(
 @router.delete("/{character_id}")
 async def delete_character(
     character_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_active_user)
 ):
-    """删除角色"""
+    """删除角色 - 需要用户登录"""
     try:
         character_service = CharacterService(db)
         success = await character_service.delete_character(character_id)
@@ -283,9 +288,10 @@ async def create_character_with_audio(
     reference_audio_language: Optional[str] = Form("zh"),
     tags: Optional[str] = Form(None),  # JSON字符串
     reference_audio: Optional[UploadFile] = File(None),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_active_user)
 ):
-    """创建带音频的角色"""
+    """创建带音频的角色 - 需要用户登录"""
     try:
         character_service = CharacterService(db)
         voice_service = VoiceService()

@@ -71,8 +71,8 @@ class ChatService:
         query = (
             select(ChatSession)
             .options(
-                selectinload(ChatSession.character),   # 你已有的
-                selectinload(ChatSession.messages)     # 再加这一行
+                selectinload(ChatSession.character), 
+                selectinload(ChatSession.messages)
             )
         )
         
@@ -137,6 +137,7 @@ class ChatService:
                                   has_date: bool = True) -> List[dict]:
         """获取会话历史（用于AI上下文）"""
         messages = await self.get_session_messages(session_id, limit=limit)
+        print('会话历史', messages)
         return [
             {
                 "is_user": msg.is_user,

@@ -20,20 +20,19 @@ router = APIRouter()
 async def send_message(
     request: ChatRequest,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user_optional)
+    current_user = Depends(get_current_active_user)
 ):
-    """发送聊天消息"""
+    """发送聊天消息 - 需要用户登录"""
     chat_service = ChatService(db)
     ai_service = AIService()
     tts_service = TTSService()
     character_service = CharacterService(db)
     
     print("当前用户", current_user)
-    # 获取或创建聊天会话
-    user_id = current_user.id if current_user else (request.user_id or "anonymous")
+    # 获取或创建聊天会话 - 必须有用户ID
     session = await chat_service.get_or_create_session(
         character_id=request.character_id,
-        user_id=user_id
+        user_id=current_user.id
     )
     print("会话", session.id)
     # 保存用户消息
@@ -99,13 +98,12 @@ async def send_message(
 async def get_user_sessions(
     character_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user_optional)
+    current_user = Depends(get_current_active_user)
 ):
-    """获取用户的聊天会话列表"""
+    """获取用户的聊天会话列表 - 需要用户登录"""
     chat_service = ChatService(db)
-    user_id = current_user.id if current_user else None
     sessions = await chat_service.get_user_sessions(
-        user_id=user_id,
+        user_id=current_user.id,
         character_id=character_id,
         limit=20,
         offset=0

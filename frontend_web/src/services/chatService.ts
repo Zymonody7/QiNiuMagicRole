@@ -1,4 +1,5 @@
 import { Character, ChatMessage } from '@/types/character';
+import { apiService } from './apiService';
 
 export class ChatService {
   private static baseUrl = '/api';
@@ -9,30 +10,14 @@ export class ChatService {
     sessionId: string
   ): Promise<any> {
     try {
-      // 创建超时控制器 - 10分钟超时
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分钟
-      
-      const response = await fetch(`${this.baseUrl}/chat/message`, {
+      const data = await apiService.request('/chat/message', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           character_id: characterId,
           message,
           session_id: sessionId,
         }),
-        signal: controller.signal,
       });
-      
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
       
       // 返回完整的响应数据，包含音频URL
       return {
@@ -41,10 +26,6 @@ export class ChatService {
         ai_message: data.ai_message
       };
     } catch (error) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error('请求超时，语音生成可能需要更长时间，请稍后重试');
-      }
       console.error('发送消息失败:', error);
       throw error;
     }
@@ -155,16 +136,10 @@ export class ChatService {
       formData.append('character_id', characterId);
       formData.append('language', 'zh-CN');
 
-      const response = await fetch(`${this.baseUrl}/voice/process-voice-message`, {
+      const data = await apiService.request('/voice/process-voice-message', {
         method: 'POST',
         body: formData,
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
       
       if (!data.success) {
         // 如果是语音识别失败，返回友好的错误信息

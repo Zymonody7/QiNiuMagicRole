@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { authService } from '@/services/authService';
+import { apiService } from '@/services/apiService';
 import { User, LoginRequest, RegisterRequest, ChangePasswordRequest, AuthContextType } from '@/types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,6 +39,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const response = await authService.login(credentials);
       setToken(response.access_token);
+      apiService.setToken(response.access_token);
       const userData = await authService.getCurrentUser();
       setUser(userData);
     } catch (error) {
@@ -49,6 +51,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const response = await authService.register(userData);
       setToken(response.access_token);
+      apiService.setToken(response.access_token);
       const userInfo = await authService.getCurrentUser();
       setUser(userInfo);
     } catch (error) {
@@ -58,6 +61,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = (): void => {
     authService.logout();
+    apiService.setToken(null);
     setUser(null);
     setToken(null);
   };
