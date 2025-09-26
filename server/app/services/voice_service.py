@@ -13,6 +13,8 @@ import asyncio
 from pydub import AudioSegment
 import tempfile
 import logging
+from app.services.qiniu_asr_service import qiniu_asr_service
+from app.services.qiniu_service import qiniu_service
 
 # 设置日志
 logger = logging.getLogger(__name__)
@@ -26,9 +28,19 @@ class VoiceService:
         self.tts_language = settings.TTS_LANGUAGE
     
     async def speech_to_text(self, audio_path: str, language: str = "zh-CN") -> str:
-        """语音转文字"""
+        """语音转文字 - 优先使用七牛云ASR，降级到本地ASR"""
         try:
-            # 在异步环境中运行同步代码
+            # 优先尝试使用七牛云ASR服务
+            if qiniu_asr_service.enabled:
+                try:
+                    logger.info("使用七牛云ASR服务进行语音识别")
+                    text = await self._speech_to_text_with_qiniu(audio_path, language)
+                    return text
+                except Exception as e:
+                    logger.warning(f"七牛云ASR失败，降级到本地ASR: {e}")
+            
+            # 降级到本地ASR服务
+            logger.info("使用本地ASR服务进行语音识别")
             loop = asyncio.get_event_loop()
             text = await loop.run_in_executor(
                 None, 
@@ -39,6 +51,47 @@ class VoiceService:
             return text
         except Exception as e:
             raise VoiceProcessingError(f"语音识别失败: {str(e)}")
+    
+    async def _speech_to_text_with_qiniu(self, audio_path: str, language: str) -> str:
+        """使用七牛云ASR服务进行语音识别"""
+        try:
+            # 上传音频文件到七牛云存储
+            with open(audio_path, "rb") as f:
+                audio_data = f.read()
+            
+            # 生成文件名
+            file_ext = os.path.splitext(audio_path)[1]
+            key = f"asr_temp/{uuid.uuid4().hex}{file_ext}"
+            
+            # 上传到七牛云
+            upload_result = qiniu_service.upload_data(
+                data=audio_data,
+                key=key,
+                mime_type="audio/wav" if file_ext == ".wav" else "audio/mpeg"
+            )
+            
+            if not upload_result["success"]:
+                raise VoiceProcessingError(f"上传音频文件失败: {upload_result['error']}")
+            
+            # 获取文件URL
+            audio_url = upload_result["url"]
+            logger.info(f"音频文件已上传到七牛云: {audio_url}")
+            
+            # 调用七牛云ASR服务
+            text = await qiniu_asr_service.speech_to_text(audio_url, language)
+            
+            # 清理七牛云临时文件
+            try:
+                qiniu_service.delete_file(key)
+                logger.info(f"已清理七牛云临时文件: {key}")
+            except Exception as e:
+                logger.warning(f"清理七牛云临时文件失败: {e}")
+            
+            return text
+            
+        except Exception as e:
+            logger.error(f"七牛云ASR识别失败: {e}")
+            raise VoiceProcessingError(f"七牛云ASR识别失败: {str(e)}")
     
     def _speech_to_text_sync(self, audio_path: str, language: str) -> str:
         """同步语音转文字 - 支持多种识别引擎和降级方案"""

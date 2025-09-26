@@ -138,7 +138,7 @@ function ChatPage() {
       // 检查响应是否包含音频URL
       const aiMessage: ChatMessageType = {
         id: `ai_${Date.now()}`,
-        content: response.content || response,
+        content: response.content || '抱歉，我无法生成回复。',
         isUser: false,
         timestamp: new Date(),
         characterId: character.id,
@@ -151,7 +151,7 @@ function ChatPage() {
       
       // 根据错误类型显示不同的提示
       let errorContent = '抱歉，我暂时无法回复您的消息。请稍后再试。';
-      if (error.message && error.message.includes('超时')) {
+      if (error instanceof Error && error.message && error.message.includes('超时')) {
         errorContent = '语音生成需要较长时间，请稍后重试。如果问题持续，请检查网络连接。';
       }
       
@@ -190,10 +190,11 @@ function ChatPage() {
         const aiResponse = await ChatService.sendMessage(character.id, response.text, sessionId);
         const aiMessage: ChatMessageType = {
           id: `ai_${Date.now()}`,
-          content: aiResponse,
+          content: aiResponse.content || '抱歉，我无法生成回复。',
           isUser: false,
           timestamp: new Date(),
-          characterId: character.id
+          characterId: character.id,
+          audioUrl: aiResponse.audioUrl || aiResponse.ai_message?.audioUrl
         };
         setMessages(prev => [...prev, aiMessage]);
       } else {
@@ -327,7 +328,7 @@ function ChatPage() {
                 <ChatMessage
                   message={message}
                   character={character}
-                  autoPlay={autoPlayAudio && message && message.id && message.id.startsWith('ai_')}
+                  autoPlay={autoPlayAudio && message && message.id && message.id.startsWith('ai_') || false}
                 />
               </motion.div>
             ))}

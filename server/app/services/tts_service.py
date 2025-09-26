@@ -79,14 +79,43 @@ class TTSService:
         reference_audio_language: str = "zh"
     ) -> str:
         """调用llm_server进行TTS"""
+        temp_file_path = None
         try:
-            # 构造llm_server可以访问的音频文件路径
-            # 将server的音频路径转换为llm_server可以访问的路径
-            if reference_audio_path.startswith("/static/uploads/"):
-                # 移除 /static/uploads/ 前缀，构造相对路径
+            # 处理七牛云存储的文件
+            if reference_audio_path.startswith("http"):
+                # 这是七牛云URL，需要下载到本地临时文件
+                from app.services.file_download_service import file_download_service
+                
+                # 从URL中提取文件名
+                filename = os.path.basename(reference_audio_path.split('?')[0])
+                if not filename:
+                    filename = f"temp_audio_{uuid.uuid4().hex}.wav"
+                
+                # 下载文件到本地临时文件
+                download_result = await file_download_service.download_file_to_temp(
+                    reference_audio_path, 
+                    filename
+                )
+                
+                if not download_result["success"]:
+                    raise VoiceProcessingError(f"下载参考音频失败: {download_result['error']}")
+                
+                temp_file_path = download_result["local_path"]
+                # 将绝对路径转换为LLM服务器可以访问的相对路径
+                # 从绝对路径中提取相对路径部分
+                if "static" in temp_file_path:
+                    # 找到static在路径中的位置，然后构造相对路径
+                    static_index = temp_file_path.find("static")
+                    relative_path = temp_file_path[static_index:]
+                    # LLM服务器在llm_server目录，server在../server目录
+                    llm_server_refer_path = os.path.join("..", "server", relative_path)
+                else:
+                    # 如果路径中没有static，直接使用绝对路径
+                    llm_server_refer_path = temp_file_path
+                
+            elif reference_audio_path.startswith("/static/uploads/"):
+                # 本地文件，构造llm_server可以访问的路径
                 relative_path = reference_audio_path.replace("/static/uploads/", "")
-                # 构造llm_server可以访问的绝对路径
-                # 假设llm_server的根目录是QiNiuMagicRole，那么路径应该是相对于llm_server的路径
                 llm_server_refer_path = os.path.join("..", "server", "static", "uploads", relative_path)
             else:
                 # 如果已经是绝对路径，直接使用
@@ -133,6 +162,15 @@ class TTSService:
             raise VoiceProcessingError(f"LLM服务器连接失败: {str(e)}")
         except Exception as e:
             raise VoiceProcessingError(f"调用LLM服务器失败: {str(e)}")
+        finally:
+            # 清理临时文件
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    from app.services.file_download_service import file_download_service
+                    file_download_service.cleanup_temp_file(temp_file_path)
+                    logger.info(f"临时文件已清理: {temp_file_path}")
+                except Exception as cleanup_error:
+                    logger.warning(f"清理临时文件失败: {cleanup_error}")
     
     async def _generate_default_voice(self, text: str, language: str) -> str:
         """生成默认语音（降级方案）"""
@@ -162,8 +200,9 @@ class TTSService:
             
             if static_asset_service.use_qiniu:
                 # 使用七牛云存储
+                from app.services.qiniu_service import qiniu_service
                 key = f"generated_voices/{filename}"
-                result = static_asset_service.qiniu_service.upload_data(
+                result = qiniu_service.upload_data(
                     data=audio_data,
                     key=key,
                     mime_type="audio/wav"
