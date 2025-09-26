@@ -112,6 +112,10 @@ class VoiceChatService:
             print(f"收到音频消息，客户端ID: {client_id}")
             print(f"消息内容: {message}")
             
+            # 获取角色ID
+            character_id = message.get("characterId")
+            print(f"🔍 音频处理中的角色ID: {character_id}")
+            
             # 获取音频数据
             audio_data = message.get("data", [])
             if not audio_data:
@@ -124,6 +128,7 @@ class VoiceChatService:
             # 将音频数据转换为字节
             audio_bytes = bytes(audio_data)
             print(f"音频字节长度: {len(audio_bytes)}")
+            print(f"音频数据前10个字节: {audio_data[:10]}...")  # 只显示前10个字节
             
             # 保存临时音频文件
             with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
@@ -188,7 +193,7 @@ class VoiceChatService:
                 
                 # 3. 使用llm_server进行TTS
                 print("开始llm_server TTS...")
-                audio_url = await self._generate_voice_response(ai_response, client_id)
+                audio_url = await self._generate_voice_response(ai_response, character_id)
                 
                 if audio_url:
                     # 发送AI回复和音频
@@ -251,7 +256,7 @@ class VoiceChatService:
                 return
             
             # 生成语音回复
-            audio_url = await self._generate_voice_response(ai_response, client_id)
+            audio_url = await self._generate_voice_response(ai_response, character_id)
             
             if audio_url:
                 # 发送AI回复和音频
@@ -311,11 +316,14 @@ class VoiceChatService:
             
             async with AsyncSessionLocal() as db:
                 character_service = CharacterService(db)
+                print(f"🔍 查找角色ID: {character_id}")
                 character = await character_service.get_character_by_id(character_id)
                 
                 if not character:
-                    print(f"角色 {character_id} 不存在，使用默认TTS")
+                    print(f"❌ 角色 {character_id} 不存在，使用默认TTS")
                     return await self.tts_service._generate_default_voice(text, "zh")
+                else:
+                    print(f"✅ 找到角色: {character.name} (ID: {character.id})")
                 
                 # 构建角色数据
                 character_data = {

@@ -79,7 +79,10 @@ export default function RealtimeVoiceChat({ character, onClose }: RealtimeVoiceC
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          sampleRate: 44100
+          autoGainControl: true,
+          sampleRate: 16000,  // 降低采样率，更适合语音识别
+          channelCount: 1,     // 单声道
+          latency: 0.01        // 降低延迟
         } 
       });
       
@@ -185,13 +188,8 @@ export default function RealtimeVoiceChat({ character, onClose }: RealtimeVoiceC
       
       // 添加调试日志
       if (audioLevel > 5) { // 进一步降低阈值用于调试
-        console.log(`🔊 音频级别: ${audioLevel}%, 是否说话: ${isSpeaking}`);
       }
       
-      // 每100次检查输出一次状态（避免日志过多）
-      if (Math.random() < 0.01) { // 1%的概率输出
-        console.log(`📊 音频监控状态: 级别=${audioLevel}%, 说话=${isSpeaking}, 录音中=${isRecording}`);
-      }
       
       // 如果用户在说话，重置静音超时
       if (isSpeaking) {
@@ -228,6 +226,8 @@ export default function RealtimeVoiceChat({ character, onClose }: RealtimeVoiceC
   };
 
   const startActualCallWithAudio = (audioUrl: string) => {
+    console.log('🎵 startActualCallWithAudio 被调用，isCallActive:', isCallActive);
+    
     // 设置音频分析器用于语音活动检测（现在才设置）
     if (streamRef.current) {
       setupAudioAnalysis(streamRef.current);
@@ -241,10 +241,16 @@ export default function RealtimeVoiceChat({ character, onClose }: RealtimeVoiceC
       console.log('⚠️ 问候语音频URL为空');
     }
     
-    // 开始录音
+    // 开始录音 - 使用更长的延迟确保状态更新
     setTimeout(() => {
+      console.log('🎵 准备开始录音，当前isCallActive:', isCallActive);
+      console.log('🎵 开始录音前的状态检查:', {
+        streamRef: !!streamRef.current,
+        websocketRef: !!websocketRef.current,
+        websocketState: websocketRef.current?.readyState
+      });
       startRecording();
-    }, 1000); // 延迟1秒开始录音
+    }, 2000); // 延迟2秒开始录音
   };
 
   const endCall = () => {
@@ -262,30 +268,76 @@ export default function RealtimeVoiceChat({ character, onClose }: RealtimeVoiceC
   };
 
   const startRecording = () => {
-    if (!streamRef.current || !websocketRef.current || !isCallActive) return;
+    console.log('🎙️ ===== startRecording 被调用 =====');
+    console.log('🎙️ 条件检查:', {
+      streamRef: !!streamRef.current,
+      websocketRef: !!websocketRef.current,
+      isCallActive
+    });
+    
+    if (!streamRef.current || !websocketRef.current) {
+      console.log('❌ startRecording 基础条件不满足，退出');
+      return;
+    }
+    
+    // 如果isCallActive为false，但其他条件满足，强制开始录音
+    if (!isCallActive) {
+      console.log('⚠️ isCallActive为false，但强制开始录音');
+    }
     
     try {
+      console.log('🎙️ 创建MediaRecorder...');
+      
+      // 检查支持的MIME类型，优先选择适合语音的格式
+      const supportedTypes = [
+        'audio/webm;codecs=opus',  // 最佳语音质量
+        'audio/mp4;codecs=mp4a.40.2',  // AAC编码，适合语音
+        'audio/webm',
+        'audio/mp4',
+        'audio/wav'
+      ];
+      
+      let mimeType = '';
+      for (const type of supportedTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          console.log('🎙️ 使用MIME类型:', mimeType);
+          break;
+        }
+      }
+      
+      if (!mimeType) {
+        console.error('❌ 没有支持的MIME类型');
+        return;
+      }
+      
       const mediaRecorder = new MediaRecorder(streamRef.current, {
-        mimeType: 'audio/webm;codecs=opus'
+        mimeType: mimeType
       });
       
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
       
       mediaRecorder.ondataavailable = (event) => {
+        console.log('🎙️ 收到音频数据:', event.data.size, 'bytes');
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+          console.log('🎙️ 音频数据质量检查:', {
+            size: event.data.size,
+            type: event.data.type,
+            timestamp: new Date().toISOString()
+          });
         }
       };
       
       mediaRecorder.onstop = () => {
-        console.log('🛑 录音停止事件触发');
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        console.log('🛑 ===== 录音停止事件触发 =====');
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         
         // 检查用户是否在录音期间说话
         const wasUserSpeaking = userSpokenDuringRecording.current;
         
-        console.log(`🛑 录音结束 - 音频大小: ${audioBlob.size}, 录音期间用户说话: ${wasUserSpeaking}, 当前音频级别: ${audioLevel}`);
+        console.log(`🛑 录音结束 - 音频大小: ${audioBlob.size}, 录音期间用户说话: ${wasUserSpeaking}`);
         console.log(`🛑 录音数据详情:`, {
           chunksCount: audioChunksRef.current.length,
           blobSize: audioBlob.size,
@@ -319,8 +371,22 @@ export default function RealtimeVoiceChat({ character, onClose }: RealtimeVoiceC
       
       // 开始连续录音，每3秒发送一次音频数据
       console.log('🎙️ 开始录音，每3秒发送一次音频数据');
-      mediaRecorder.start(3000);
+      console.log('🎙️ MediaRecorder状态:', mediaRecorder.state);
+      mediaRecorder.start();
+      console.log('🎙️ 录音已启动，状态:', mediaRecorder.state);
       setIsRecording(true);
+      
+      // 手动控制录音停止，每3秒停止一次
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          console.log('🎙️ 手动停止录音（3秒后）');
+          console.log('🎙️ 录音前请确保：');
+          console.log('🎙️ 1. 麦克风权限已授予');
+          console.log('🎙️ 2. 没有其他应用占用麦克风');
+          console.log('🎙️ 3. 环境相对安静');
+          mediaRecorderRef.current.stop();
+        }
+      }, 3000);
       
       // 重置用户说话标志
       userSpokenDuringRecording.current = false;
@@ -342,6 +408,7 @@ export default function RealtimeVoiceChat({ character, onClose }: RealtimeVoiceC
   };
 
   const sendAudioToServer = async (audioBlob: Blob) => {
+    console.log('📤 ===== sendAudioToServer 被调用 =====');
     if (!websocketRef.current) {
       console.error('❌ WebSocket连接不存在');
       return;
@@ -368,6 +435,8 @@ export default function RealtimeVoiceChat({ character, onClose }: RealtimeVoiceC
         data: audioData,
         characterId: character.id
       };
+      
+      console.log('📤 发送音频数据，角色ID:', character.id);
       
       console.log('📤 发送WebSocket消息:', { 
         type: message.type, 
@@ -397,8 +466,11 @@ export default function RealtimeVoiceChat({ character, onClose }: RealtimeVoiceC
         setIsPreparing(false);
         // 问候语准备好后，才进入通话界面
         setIsCallActive(true);
-        // 使用接收到的音频URL直接开始通话
-        startActualCallWithAudio(data.audioUrl);
+        // 延迟一点时间确保状态更新完成
+        setTimeout(() => {
+          console.log('🎵 ===== 准备调用 startActualCallWithAudio =====');
+          startActualCallWithAudio(data.audioUrl);
+        }, 100);
         break;
         
       case 'transcript':
@@ -580,27 +652,6 @@ export default function RealtimeVoiceChat({ character, onClose }: RealtimeVoiceC
                      '等待您说话...'}
                   </p>
                   
-                  {/* 音频级别指示器 */}
-                  {isCallActive && (
-                    <div className="mt-4">
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="text-xs text-gray-500">音量:</div>
-                        <div className="flex space-x-1">
-                          {[...Array(10)].map((_, i) => (
-                            <div
-                              key={i}
-                              className={`w-2 h-4 rounded-sm ${
-                                audioLevel > (i + 1) * 10 
-                                  ? isUserSpeaking ? 'bg-green-400' : 'bg-blue-400'
-                                  : 'bg-gray-200'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <div className="text-xs text-gray-500">{audioLevel}%</div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -679,7 +730,6 @@ export default function RealtimeVoiceChat({ character, onClose }: RealtimeVoiceC
               {/* 调试信息 */}
               {isCallActive && (
                 <div className="mt-2 text-xs text-gray-400">
-                  <p>音频级别: {audioLevel}% | 用户说话: {isUserSpeaking ? '是' : '否'}</p>
                   <p>录音状态: {isRecording ? '进行中' : '已停止'}</p>
                 </div>
               )}
