@@ -34,7 +34,7 @@ class AIService:
             system_prompt = self._build_system_prompt(character_info)
             messages = [{"role": "system", "content": system_prompt}]
             messages.extend(session_history[-10:])
-            # messages.append({"role": "user", "content": user_message})
+            messages.append({"role": "user", "content": user_message})
             
             url = "https://openai.qiniu.com/v1/chat/completions"
             headers = {
@@ -78,7 +78,10 @@ class AIService:
             }
             
         except Exception as e:
-            print(e)
+            print(f"AI服务异常: {e}")
+            print(f"异常类型: {type(e)}")
+            import traceback
+            print(f"异常堆栈: {traceback.format_exc()}")
             raise AIResponseError(f"AI响应生成失败: {str(e)}")
     
     def _build_system_prompt(self, character_info: Dict) -> str:

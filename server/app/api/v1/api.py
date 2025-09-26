@@ -3,7 +3,7 @@ API v1 路由汇总
 """
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import characters, chat, voice, users, auth, storage, assets
+from app.api.v1.endpoints import characters, chat, voice, voice_chat, users, auth, storage, assets
 
 api_router = APIRouter()
 
@@ -30,6 +30,12 @@ api_router.include_router(
     voice.router,
     prefix="/voice",
     tags=["语音处理"]
+)
+
+api_router.include_router(
+    voice_chat.router,
+    prefix="/voice",
+    tags=["实时语音聊天"]
 )
 
 api_router.include_router(
