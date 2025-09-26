@@ -31,9 +31,12 @@ class ApiService {
   ): Promise<T> {
     const url = `${API_BASE_URL}/api/v1${endpoint}`;
     
+    // 检查是否是FormData，如果是则不设置Content-Type
+    const isFormData = options.body instanceof FormData;
+    
     const config: RequestInit = {
       headers: {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...(this.token && { Authorization: `Bearer ${this.token}` }),
         ...options.headers,
       },
@@ -291,13 +294,6 @@ class ApiService {
     });
   }
 
-  // Token管理
-  setToken(token: string): void {
-    this.token = token;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('auth_token', token);
-    }
-  }
 
   clearToken(): void {
     this.token = null;

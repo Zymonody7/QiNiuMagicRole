@@ -12,6 +12,7 @@ from app.services.character_service import CharacterService
 from app.services.voice_service import VoiceService
 from app.services.static_asset_service import static_asset_service
 from app.services.qiniu_asr_service import qiniu_asr_service
+from app.services.qiniu_text_service import qiniu_text_service
 from app.models.character import Character
 import os
 import uuid
@@ -486,4 +487,51 @@ async def test_qiniu_asr(
             "success": False,
             "error": str(e),
             "message": "七牛云ASR测试失败"
+        }
+
+@router.post("/text-process")
+async def process_text(
+    text: str = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """测试文本处理功能 - 将英文转换为拟声词"""
+    try:
+        # 检查文本处理服务是否可用
+        if not qiniu_text_service.is_enabled():
+            raise HTTPException(
+                status_code=503, 
+                detail="七牛云文本处理服务未启用，请配置QINIU_AI_API_KEY环境变量"
+            )
+        
+        # 处理文本
+        processed_text = await qiniu_text_service.english_to_onomatopoeia(text)
+        
+        return {
+            "success": True,
+            "original_text": text,
+            "processed_text": processed_text,
+            "message": "文本处理成功"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"文本处理失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"文本处理失败: {str(e)}")
+
+@router.get("/text-process-status")
+async def get_text_process_status(db: AsyncSession = Depends(get_db)):
+    """获取七牛云文本处理服务状态"""
+    try:
+        status = await qiniu_text_service.get_service_status()
+        return {
+            "success": True,
+            "status": status,
+            "message": "服务状态获取成功"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "服务状态获取失败"
         }

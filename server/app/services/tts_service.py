@@ -10,6 +10,7 @@ from typing import Optional, Dict, Any
 from app.core.config import settings
 from app.core.exceptions import VoiceProcessingError
 from app.services.static_asset_service import static_asset_service
+from app.services.qiniu_text_service import qiniu_text_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,18 @@ class TTSService:
         """调用llm_server进行TTS"""
         temp_file_path = None
         try:
+            # 预处理文本：将英文转换为拟声词
+            processed_text = text
+            if qiniu_text_service.is_enabled():
+                try:
+                    logger.info(f"预处理文本: {text[:100]}...")
+                    processed_text = await qiniu_text_service.english_to_onomatopoeia(text)
+                    logger.info(f"文本处理完成: {processed_text[:100]}...")
+                except Exception as e:
+                    logger.warning(f"文本处理失败，使用原始文本: {e}")
+                    processed_text = text
+            else:
+                logger.info("七牛云文本处理服务未启用，使用原始文本")
             # 处理七牛云存储的文件
             if reference_audio_path.startswith("http"):
                 # 这是七牛云URL，需要下载到本地临时文件
@@ -126,7 +139,7 @@ class TTSService:
                 "refer_wav_path": llm_server_refer_path,
                 "prompt_text": reference_audio_text,
                 "prompt_language": reference_audio_language,
-                "text": text,
+                "text": processed_text,  # 使用处理后的文本
                 "text_language": text_language,
                 "top_k": 15,
                 "top_p": 1.0,
