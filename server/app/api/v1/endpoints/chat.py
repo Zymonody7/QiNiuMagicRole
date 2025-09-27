@@ -2,7 +2,7 @@
 聊天对话API端点
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Body, Response
+from fastapi import APIRouter, Depends, HTTPException, Body, Response, Form, File, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, List, Optional
@@ -14,6 +14,7 @@ from app.services.ai_service import AIService
 from app.services.tts_service import TTSService
 from app.services.character_service import CharacterService
 from app.services.export_service import ExportService
+from app.services.advanced_export_service import AdvancedExportService
 from app.core.exceptions import CharacterNotFoundError, ChatSessionNotFoundError, AIResponseError
 import io
 
@@ -266,3 +267,61 @@ async def export_audio(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"音频导出失败: {str(e)}")
+
+@router.post("/export/audio-advanced")
+async def export_advanced_audio(
+    sessionId: str = Form(...),
+    characterId: str = Form(...),
+    messages: str = Form(...),  # JSON字符串
+    userVoiceType: str = Form(...),
+    introText: str = Form(...),
+    outroText: str = Form(...),
+    userVoiceFile: Optional[UploadFile] = File(None),
+    backgroundMusic: Optional[UploadFile] = File(None),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """高级音频导出 - 支持自定义音色、背景音乐等"""
+    try:
+        export_service = AdvancedExportService(db)
+        
+        # 解析消息数据
+        import json
+        messages_data = json.loads(messages)
+        
+        # 获取角色信息
+        character_service = CharacterService(db)
+        character = await character_service.get_character_by_id(characterId)
+        if not character:
+            raise HTTPException(status_code=404, detail="角色不存在")
+        
+        # 生成高级播客音频
+        audio_content = await export_service.generate_advanced_podcast_audio(
+            messages=messages_data,
+            character=character,
+            user_voice_type=userVoiceType,
+            user_voice_file=userVoiceFile,
+            background_music_file=backgroundMusic,
+            intro_text=introText,
+            outro_text=outroText
+        )
+        
+        # 设置响应头
+        safe_character_name = character.name.encode('ascii', errors='ignore').decode('ascii') or "character"
+        safe_session_id = sessionId[:8]
+        filename = f"advanced_podcast_{safe_character_name}_{safe_session_id}.mp3"
+        
+        from urllib.parse import quote
+        encoded_filename = quote(filename)
+        
+        return StreamingResponse(
+            io.BytesIO(audio_content),
+            media_type="audio/mpeg",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"高级音频导出失败: {e}")
+        raise HTTPException(status_code=500, detail=f"高级音频导出失败: {str(e)}")

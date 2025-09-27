@@ -360,6 +360,43 @@ class ApiService {
     return response.blob();
   }
 
+  async exportAudioWithConfig(sessionId: string, characterId: string, messages: any[], config: any): Promise<Blob> {
+    const formData = new FormData();
+    formData.append('sessionId', sessionId);
+    formData.append('characterId', characterId);
+    formData.append('messages', JSON.stringify(messages.map(msg => ({
+      content: msg.content,
+      isUser: msg.isUser,
+      timestamp: msg.timestamp.toISOString(),
+      audioUrl: msg.audioUrl
+    }))));
+    formData.append('userVoiceType', config.userVoiceType);
+    formData.append('introText', config.introText);
+    formData.append('outroText', config.outroText);
+    
+    if (config.userVoiceFile) {
+      formData.append('userVoiceFile', config.userVoiceFile);
+    }
+    
+    if (config.backgroundMusic) {
+      formData.append('backgroundMusic', config.backgroundMusic);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/chat/export/audio-advanced`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error('音频导出失败');
+    }
+
+    return response.blob();
+  }
+
   clearToken(): void {
     this.token = null;
     if (typeof window !== 'undefined') {

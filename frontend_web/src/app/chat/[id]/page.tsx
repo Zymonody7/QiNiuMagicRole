@@ -9,6 +9,7 @@ import CharacterCard from '@/components/CharacterCard';
 import ChatMessage from '@/components/ChatMessage';
 import ChatInput from '@/components/ChatInput';
 import Navigation from '@/components/Navigation';
+import PodcastExportModal, { PodcastConfig } from '@/components/PodcastExportModal';
 import { Character, ChatMessage as ChatMessageType, ChatSession } from '@/types/character';
 import { apiService } from '@/services/apiService';
 import { ChatService } from '@/services/chatService';
@@ -30,6 +31,7 @@ function ChatPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [selectedBackgroundMusic, setSelectedBackgroundMusic] = useState<string>('');
+  const [showPodcastModal, setShowPodcastModal] = useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const { showSuccess, showError } = useToastContext();
 
@@ -285,9 +287,19 @@ function ChatPage() {
       return;
     }
     
+    // 显示播客配置弹窗
+    setShowPodcastModal(true);
+    setShowExportMenu(false);
+  };
+
+  const handlePodcastConfig = async (config: PodcastConfig) => {
+    if (!character || messages.length === 0) return;
+    
     setIsExporting(true);
+    setShowPodcastModal(false);
+    
     try {
-      const blob = await apiService.exportAudio(sessionId, character.id, messages, selectedBackgroundMusic || undefined);
+      const blob = await apiService.exportAudioWithConfig(sessionId, character.id, messages, config);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -296,12 +308,13 @@ function ChatPage() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      
+      showSuccess('导出成功', '播客音频已生成并下载');
     } catch (error) {
       console.error('导出音频失败:', error);
       showError('音频导出失败', '请稍后重试');
     } finally {
       setIsExporting(false);
-      setShowExportMenu(false);
     }
   };
 
@@ -411,7 +424,7 @@ function ChatPage() {
                       导出为PDF文档
                     </button>
                     <div className="border-t pt-2">
-                      <div className="px-3 py-2 text-xs text-gray-500 mb-2">背景音乐选择</div>
+                      {/* <div className="px-3 py-2 text-xs text-gray-500 mb-2">背景音乐选择</div>
                       <select
                         value={selectedBackgroundMusic}
                         onChange={(e) => setSelectedBackgroundMusic(e.target.value)}
@@ -422,7 +435,7 @@ function ChatPage() {
                         <option value="ambient">环境音乐</option>
                         <option value="classical">古典音乐</option>
                         <option value="jazz">爵士音乐</option>
-                      </select>
+                      </select> */}
                       <button
                         onClick={handleExportAudio}
                         className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
@@ -512,6 +525,16 @@ function ChatPage() {
         <RealtimeVoiceChat
           character={character}
           onClose={() => setShowRealtimeVoiceChat(false)}
+        />
+      )}
+      
+      {/* 播客配置弹窗 */}
+      {showPodcastModal && character && (
+        <PodcastExportModal
+          isOpen={showPodcastModal}
+          onClose={() => setShowPodcastModal(false)}
+          onConfirm={handlePodcastConfig}
+          characterName={character.name}
         />
       )}
     </div>
