@@ -184,66 +184,105 @@ class ExportService:
         styles = getSampleStyleSheet()
         story = []
         
-        # 标题样式
-        title_style = ParagraphStyle(
-            'CustomTitle',
+        # 注册中文字体
+        chinese_font_name = 'Helvetica'  # 默认字体
+        try:
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
+            
+            # 常见的中文字体路径
+            chinese_fonts = [
+                'C:/Windows/Fonts/simsun.ttc',  # 宋体
+                'C:/Windows/Fonts/simhei.ttf',  # 黑体
+                'C:/Windows/Fonts/msyh.ttc',    # 微软雅黑
+                '/System/Library/Fonts/PingFang.ttc',  # macOS
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',  # Linux
+            ]
+            
+            for font_path in chinese_fonts:
+                try:
+                    if os.path.exists(font_path):
+                        pdfmetrics.registerFont(TTFont('ChineseFont', font_path))
+                        chinese_font_name = 'ChineseFont'
+                        print(f"成功注册中文字体: {font_path}")
+                        break
+                except Exception as e:
+                    print(f"注册字体失败 {font_path}: {e}")
+                    continue
+                    
+        except Exception as e:
+            print(f"字体注册失败: {e}")
+        
+        # 创建自定义样式
+        chinese_heading1 = ParagraphStyle(
+            'ChineseHeading1',
             parent=styles['Heading1'],
             fontSize=18,
             spaceAfter=30,
-            alignment=1  # 居中
+            alignment=1,  # 居中
+            fontName=chinese_font_name
+        )
+        
+        chinese_heading2 = ParagraphStyle(
+            'ChineseHeading2',
+            parent=styles['Heading2'],
+            fontName=chinese_font_name
+        )
+        
+        chinese_normal = ParagraphStyle(
+            'ChineseNormal',
+            parent=styles['Normal'],
+            fontName=chinese_font_name
+        )
+        
+        chinese_heading3 = ParagraphStyle(
+            'ChineseHeading3',
+            parent=styles['Heading3'],
+            fontName=chinese_font_name
         )
         
         # 添加标题
-        story.append(Paragraph(f'与{character.name}的对话记录', title_style))
+        story.append(Paragraph(f'与{self._safe_string(character.name)}的对话记录', chinese_heading1))
         story.append(Spacer(1, 20))
         
         # 角色信息
-        story.append(Paragraph('角色信息', styles['Heading2']))
-        story.append(Paragraph(f'<b>角色名称:</b> {self._safe_string(character.name)}', styles['Normal']))
-        story.append(Paragraph(f'<b>角色描述:</b> {self._safe_string(character.description)}', styles['Normal']))
-        story.append(Paragraph(f'<b>性格特点:</b> {self._safe_string(character.personality)}', styles['Normal']))
-        story.append(Paragraph(f'<b>背景故事:</b> {self._safe_string(character.background)}', styles['Normal']))
+        story.append(Paragraph('角色信息', chinese_heading2))
+        story.append(Paragraph(f'<b>角色名称:</b> {self._safe_string(character.name)}', chinese_normal))
+        story.append(Paragraph(f'<b>角色描述:</b> {self._safe_string(character.description)}', chinese_normal))
+        story.append(Paragraph(f'<b>性格特点:</b> {self._safe_string(character.personality)}', chinese_normal))
+        story.append(Paragraph(f'<b>背景故事:</b> {self._safe_string(character.background)}', chinese_normal))
         story.append(Spacer(1, 20))
         
         # 对话记录
-        story.append(Paragraph('对话记录', styles['Heading2']))
-        story.append(Paragraph(f'导出时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', styles['Normal']))
-        story.append(Paragraph(f'总消息数: {len(messages)}', styles['Normal']))
+        story.append(Paragraph('对话记录', chinese_heading2))
+        story.append(Paragraph(f'导出时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', chinese_normal))
+        story.append(Paragraph(f'总消息数: {len(messages)}', chinese_normal))
         story.append(Spacer(1, 20))
         
         # 添加消息内容
         for i, message in enumerate(messages, 1):
-            speaker = "用户" if message.get('is_user', False) else character.name
+            speaker = "用户" if message.get('is_user', False) else self._safe_string(character.name)
             timestamp = message.get('created_at', '')
             if timestamp:
                 try:
-                    # 如果timestamp已经是datetime对象，直接格式化
                     if isinstance(timestamp, datetime):
                         timestamp = timestamp.strftime('%Y-%m-%d %H:%M:%S')
                     else:
-                        # 如果是字符串，尝试解析
                         dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
                         timestamp = dt.strftime('%Y-%m-%d %H:%M:%S')
                 except:
-                    # 如果解析失败，尝试截取字符串
                     if isinstance(timestamp, str):
                         timestamp = timestamp[:19] if len(timestamp) > 19 else timestamp
                     else:
                         timestamp = str(timestamp)[:19]
             
             # 消息标题
-            story.append(Paragraph(f'{i}. {speaker} ({timestamp})', styles['Heading3']))
+            story.append(Paragraph(f'{i}. {speaker} ({timestamp})', chinese_heading3))
             
             # 消息内容
-            content = message.get('content', '')
-            # 确保内容为字符串并处理编码
-            if isinstance(content, str):
-                # 清理可能的编码问题
-                content = content.encode('utf-8', errors='ignore').decode('utf-8')
-            else:
-                content = str(content)
+            content = self._safe_string(message.get('content', ''))
             content = content.replace('\n', '<br/>')
-            story.append(Paragraph(content, styles['Normal']))
+            story.append(Paragraph(content, chinese_normal))
             story.append(Spacer(1, 12))
         
         try:
@@ -251,7 +290,6 @@ class ExportService:
             buffer.seek(0)
             return buffer.getvalue()
         except UnicodeEncodeError as e:
-            # 如果出现编码错误，尝试重新处理PDF内容
             print(f"PDF编码错误，尝试修复: {e}")
             return await self._generate_pdf_document_safe(messages, character)
     
