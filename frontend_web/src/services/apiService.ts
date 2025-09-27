@@ -333,7 +333,7 @@ class ApiService {
     return response.blob();
   }
 
-  async exportAudio(sessionId: string, characterId: string, messages: any[]): Promise<Blob> {
+  async exportAudio(sessionId: string, characterId: string, messages: any[], backgroundMusic?: string): Promise<Blob> {
     const response = await fetch(`${API_BASE_URL}/api/v1/chat/export/audio`, {
       method: 'POST',
       headers: {
@@ -343,6 +343,7 @@ class ApiService {
       body: JSON.stringify({
         sessionId,
         characterId,
+        backgroundMusic,
         messages: messages.map(msg => ({
           content: msg.content,
           isUser: msg.isUser,

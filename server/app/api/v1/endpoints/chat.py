@@ -238,10 +238,14 @@ async def export_audio(
         if not character:
             raise HTTPException(status_code=404, detail="角色不存在")
         
+        # 获取背景音乐参数
+        background_music = request.get("backgroundMusic")
+        
         # 生成播客音频
         audio_content = await export_service.generate_podcast_audio(
             messages=messages,
-            character=character
+            character=character,
+            background_music=background_music
         )
         
         # 设置响应头

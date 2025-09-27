@@ -28,6 +28,7 @@ function ChatPage() {
   const [autoPlayAudio, setAutoPlayAudio] = useState(true);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedBackgroundMusic, setSelectedBackgroundMusic] = useState<string>('');
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -272,7 +273,7 @@ function ChatPage() {
     
     setIsExporting(true);
     try {
-      const blob = await apiService.exportAudio(sessionId, character.id, messages);
+      const blob = await apiService.exportAudio(sessionId, character.id, messages, selectedBackgroundMusic || undefined);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -395,13 +396,27 @@ function ChatPage() {
                       <FileText className="w-4 h-4 text-red-600" />
                       导出为PDF文档
                     </button>
-                    <button
-                      onClick={handleExportAudio}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                    >
-                      <Music className="w-4 h-4 text-purple-600" />
-                      生成播客音频
-                    </button>
+                    <div className="border-t pt-2">
+                      <div className="px-3 py-2 text-xs text-gray-500 mb-2">背景音乐选择</div>
+                      <select
+                        value={selectedBackgroundMusic}
+                        onChange={(e) => setSelectedBackgroundMusic(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg mb-2"
+                      >
+                        <option value="">无背景音乐</option>
+                        <option value="soft">柔和音乐</option>
+                        <option value="ambient">环境音乐</option>
+                        <option value="classical">古典音乐</option>
+                        <option value="jazz">爵士音乐</option>
+                      </select>
+                      <button
+                        onClick={handleExportAudio}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <Music className="w-4 h-4 text-purple-600" />
+                        生成播客音频
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
