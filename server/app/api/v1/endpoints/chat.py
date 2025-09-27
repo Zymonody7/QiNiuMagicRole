@@ -2,7 +2,8 @@
 聊天对话API端点
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, List, Optional
 from app.core.database import get_db
@@ -12,7 +13,9 @@ from app.services.chat_service import ChatService
 from app.services.ai_service import AIService
 from app.services.tts_service import TTSService
 from app.services.character_service import CharacterService
+from app.services.export_service import ExportService
 from app.core.exceptions import CharacterNotFoundError, ChatSessionNotFoundError, AIResponseError
+import io
 
 router = APIRouter()
 
@@ -151,3 +154,111 @@ async def delete_session(
     if not success:
         raise ChatSessionNotFoundError(session_id)
     return {"message": "会话删除成功"}
+
+@router.post("/export/text")
+async def export_text(
+    request: Dict,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """导出对话为文本格式（Word/PDF）"""
+    try:
+        export_service = ExportService(db)
+        
+        # 获取会话消息
+        chat_service = ChatService(db)
+        messages = await chat_service.get_session_history(
+            session_id=request.get("sessionId"),
+            limit=1000,
+            offset=0
+        )
+        
+        if not messages:
+            raise HTTPException(status_code=404, detail="没有找到对话记录")
+        
+        # 获取角色信息
+        character_service = CharacterService(db)
+        character = await character_service.get_character_by_id(request.get("characterId"))
+        if not character:
+            raise HTTPException(status_code=404, detail="角色不存在")
+        
+        # 生成文档
+        format_type = request.get("format", "word")
+        file_content = await export_service.generate_text_export(
+            messages=messages,
+            character=character,
+            format_type=format_type
+        )
+        
+        # 设置响应头
+        content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document" if format_type == "word" else "application/pdf"
+        
+        # 安全处理文件名，避免编码问题
+        safe_character_name = character.name.encode('ascii', errors='ignore').decode('ascii') or "character"
+        safe_session_id = request.get('sessionId', '')[:8]
+        filename = f"chat_export_{safe_character_name}_{safe_session_id}.{'docx' if format_type == 'word' else 'pdf'}"
+        
+        # 使用URL编码的文件名
+        from urllib.parse import quote
+        encoded_filename = quote(filename)
+        
+        return StreamingResponse(
+            io.BytesIO(file_content),
+            media_type=content_type,
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+
+@router.post("/export/audio")
+async def export_audio(
+    request: Dict,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """导出对话为播客音频"""
+    try:
+        export_service = ExportService(db)
+        
+        # 获取会话消息
+        chat_service = ChatService(db)
+        messages = await chat_service.get_session_history(
+            session_id=request.get("sessionId"),
+            limit=1000,
+            offset=0
+        )
+        
+        if not messages:
+            raise HTTPException(status_code=404, detail="没有找到对话记录")
+        
+        # 获取角色信息
+        character_service = CharacterService(db)
+        character = await character_service.get_character_by_id(request.get("characterId"))
+        if not character:
+            raise HTTPException(status_code=404, detail="角色不存在")
+        
+        # 生成播客音频
+        audio_content = await export_service.generate_podcast_audio(
+            messages=messages,
+            character=character
+        )
+        
+        # 设置响应头
+        # 安全处理文件名，避免编码问题
+        safe_character_name = character.name.encode('ascii', errors='ignore').decode('ascii') or "character"
+        safe_session_id = request.get('sessionId', '')[:8]
+        filename = f"podcast_{safe_character_name}_{safe_session_id}.mp3"
+        
+        # 使用URL编码的文件名
+        from urllib.parse import quote
+        encoded_filename = quote(filename)
+        
+        return StreamingResponse(
+            io.BytesIO(audio_content),
+            media_type="audio/mpeg",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"音频导出失败: {str(e)}")

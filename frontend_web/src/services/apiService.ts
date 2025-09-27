@@ -306,6 +306,58 @@ class ApiService {
     return this.request('/ocr/status');
   }
 
+  // 导出功能
+  async exportText(sessionId: string, characterId: string, format: 'word' | 'pdf', messages: any[]): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/chat/export/text`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: JSON.stringify({
+        sessionId,
+        characterId,
+        format,
+        messages: messages.map(msg => ({
+          content: msg.content,
+          isUser: msg.isUser,
+          timestamp: msg.timestamp.toISOString()
+        }))
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('导出失败');
+    }
+
+    return response.blob();
+  }
+
+  async exportAudio(sessionId: string, characterId: string, messages: any[]): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/chat/export/audio`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: JSON.stringify({
+        sessionId,
+        characterId,
+        messages: messages.map(msg => ({
+          content: msg.content,
+          isUser: msg.isUser,
+          timestamp: msg.timestamp.toISOString(),
+          audioUrl: msg.audioUrl
+        }))
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('音频导出失败');
+    }
+
+    return response.blob();
+  }
 
   clearToken(): void {
     this.token = null;

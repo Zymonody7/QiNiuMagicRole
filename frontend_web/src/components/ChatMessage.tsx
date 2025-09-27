@@ -2,7 +2,7 @@
 
 import { ChatMessage as ChatMessageType } from '@/types/character';
 import { motion } from 'framer-motion';
-import { User, Bot, Volume2, VolumeX } from 'lucide-react';
+import { User, Bot, Volume2, VolumeX, Download } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface ChatMessageProps {
@@ -68,6 +68,25 @@ export default function ChatMessage({
     setIsPlaying(false);
   };
 
+  const handleDownloadAudio = () => {
+    if (message.audioUrl) {
+      try {
+        // 创建一个临时的a标签来触发下载
+        const link = document.createElement('a');
+        link.href = message.audioUrl;
+        link.download = `ai_audio_${message.id}.mp3`; // 设置下载文件名
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (error) {
+        console.error('下载音频失败:', error);
+        // 如果直接下载失败，尝试在新窗口打开
+        window.open(message.audioUrl, '_blank');
+      }
+    }
+  };
+
   // 自动播放功能
   useEffect(() => {
     if (autoPlay && message.audioUrl && !message.isUser) {
@@ -123,6 +142,15 @@ export default function ChatMessage({
                 <Volume2 className="w-3 h-3" />
               )}
               <span>{isPlaying ? '停止播放' : '播放语音'}</span>
+            </button>
+            
+            <button
+              onClick={handleDownloadAudio}
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 transition-colors"
+              title="下载音频"
+            >
+              <Download className="w-3 h-3" />
+              <span>下载</span>
             </button>
           </div>
         )}

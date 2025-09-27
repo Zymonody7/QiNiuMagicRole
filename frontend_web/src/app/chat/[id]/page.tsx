@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Volume2, VolumeX, Settings, RotateCcw, Phone, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Settings, RotateCcw, Phone, MessageSquare, Download, FileText, Music } from 'lucide-react';
 import RealtimeVoiceChat from '@/components/RealtimeVoiceChat';
 import CharacterCard from '@/components/CharacterCard';
 import ChatMessage from '@/components/ChatMessage';
@@ -26,6 +26,8 @@ function ChatPage() {
   const [sessionId, setSessionId] = useState<string>('');
   const [showRealtimeVoiceChat, setShowRealtimeVoiceChat] = useState(false);
   const [autoPlayAudio, setAutoPlayAudio] = useState(true);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,6 +39,18 @@ function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // 点击外部关闭导出菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showExportMenu && !(event.target as Element).closest('.export-menu')) {
+        setShowExportMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showExportMenu]);
 
   const fetchCharacter = async () => {
     try {
@@ -230,6 +244,52 @@ function ChatPage() {
     }
   };
 
+  const handleExportText = async (format: 'word' | 'pdf') => {
+    if (!character || messages.length === 0) return;
+    
+    setIsExporting(true);
+    try {
+      const blob = await apiService.exportText(sessionId, character.id, format, messages);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `对话记录_${character.name}_${new Date().toLocaleDateString()}.${format === 'word' ? 'docx' : 'pdf'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('导出文本失败:', error);
+      alert('导出失败，请稍后重试');
+    } finally {
+      setIsExporting(false);
+      setShowExportMenu(false);
+    }
+  };
+
+  const handleExportAudio = async () => {
+    if (!character || messages.length === 0) return;
+    
+    setIsExporting(true);
+    try {
+      const blob = await apiService.exportAudio(sessionId, character.id, messages);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `播客_${character.name}_${new Date().toLocaleDateString()}.mp3`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('导出音频失败:', error);
+      alert('音频导出失败，请稍后重试');
+    } finally {
+      setIsExporting(false);
+      setShowExportMenu(false);
+    }
+  };
+
   if (isLoading && !character) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
@@ -300,6 +360,51 @@ function ChatPage() {
                 >
                   <Phone className="w-5 h-5" />
                 </button>
+
+              {/* 导出按钮 */}
+              <div className="relative export-menu">
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  disabled={isExporting || messages.length === 0}
+                  className="p-2 rounded-lg transition-colors hover:bg-blue-100 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="导出对话"
+                >
+                  {isExporting ? (
+                    <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Download className="w-5 h-5" />
+                  )}
+                </button>
+                
+                {showExportMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                    <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                      导出选项
+                    </div>
+                    <button
+                      onClick={() => handleExportText('word')}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <FileText className="w-4 h-4 text-blue-600" />
+                      导出为Word文档
+                    </button>
+                    <button
+                      onClick={() => handleExportText('pdf')}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <FileText className="w-4 h-4 text-red-600" />
+                      导出为PDF文档
+                    </button>
+                    <button
+                      onClick={handleExportAudio}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <Music className="w-4 h-4 text-purple-600" />
+                      生成播客音频
+                    </button>
+                  </div>
+                )}
+              </div>
               
               <button
                 onClick={handleClearChat}
