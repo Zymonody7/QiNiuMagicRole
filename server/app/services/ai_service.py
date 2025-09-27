@@ -46,6 +46,7 @@ class AIService:
                 "model": self.model,
                 "messages": messages
             }
+            
             print('请求参数:', payload)
             
             # 发送请求
@@ -69,12 +70,14 @@ class AIService:
                 raise AIResponseError(f"API请求失败，状态码: {response.status_code}, 响应: {response.text}")
             
             response_data = response.json()
-            ai_response = response_data['choices'][0]['message']['content']
+            message = response_data['choices'][0]['message']
+            
+            ai_response = message.get('content', '')
             
             return {
                 "content": ai_response,
                 "character_id": character_id,
-                "model": self.model
+                "model": self.model,
             }
             
         except Exception as e:
@@ -83,6 +86,7 @@ class AIService:
             import traceback
             print(f"异常堆栈: {traceback.format_exc()}")
             raise AIResponseError(f"AI响应生成失败: {str(e)}")
+    
     
     def _build_system_prompt(self, character_info: Dict) -> str:
         """构建系统提示"""
@@ -168,3 +172,4 @@ class AIService:
         except Exception as e:
             # 返回默认值
             return {"positive": 0.5, "negative": 0.2, "neutral": 0.3}
+    

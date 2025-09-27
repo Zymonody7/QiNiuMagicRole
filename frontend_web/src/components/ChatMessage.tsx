@@ -128,11 +128,11 @@ export default function ChatMessage({
         )}
         
         {/* 调试信息 - 临时显示 */}
-        {!message.isUser && (
+        {/* {!message.isUser && (
           <div className="text-xs text-gray-400 mt-1">
             调试: isUser={message.isUser ? 'true' : 'false'}, audioUrl={message.audioUrl ? '有' : '无'}
           </div>
-        )}
+        )} */}
         
         <div className={`text-xs text-gray-400 mt-1 ${message.isUser ? 'text-right' : 'text-left'}`}>
           {message.timestamp.toLocaleTimeString('zh-CN', { 
