@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Upload, Download, Trash2, FileText, Cloud, HardDrive } from 'lucide-react';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface FileInfo {
   filename: string;
@@ -24,6 +25,7 @@ export default function StorageTest() {
   const [loading, setLoading] = useState(false);
   const [useQiniu, setUseQiniu] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { showSuccess, showError } = useToastContext();
 
   // 获取存储配置
   const fetchConfig = async () => {
@@ -47,7 +49,7 @@ export default function StorageTest() {
       }
     } catch (error) {
       console.error('获取配置失败:', error);
-      alert(`获取配置失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      showError('获取配置失败', error instanceof Error ? error.message : '未知错误');
     }
   };
 
@@ -70,13 +72,13 @@ export default function StorageTest() {
       if (data.success) {
         setFiles(prev => [...prev, data.data]);
         setSelectedFile(null);
-        alert('文件上传成功！');
+        showSuccess('上传成功', '文件上传成功！');
       } else {
-        alert(`上传失败: ${data.message}`);
+        showError('上传失败', data.message);
       }
     } catch (error) {
       console.error('上传失败:', error);
-      alert('上传失败，请检查网络连接');
+      showError('上传失败', '请检查网络连接');
     } finally {
       setLoading(false);
     }
@@ -103,13 +105,13 @@ export default function StorageTest() {
       const data = await response.json();
       if (data.success) {
         setFiles(prev => [...prev, ...data.data.filter((item: any) => item.success)]);
-        alert(`批量上传完成！成功上传 ${data.data.filter((item: any) => item.success).length} 个文件`);
+        showSuccess('批量上传完成', `成功上传 ${data.data.filter((item: any) => item.success).length} 个文件`);
       } else {
-        alert(`批量上传失败: ${data.message}`);
+        showError('批量上传失败', data.message);
       }
     } catch (error) {
       console.error('批量上传失败:', error);
-      alert('批量上传失败，请检查网络连接');
+      showError('批量上传失败', '请检查网络连接');
     } finally {
       setLoading(false);
     }
@@ -127,13 +129,13 @@ export default function StorageTest() {
       const data = await response.json();
       if (data.success) {
         setFiles(prev => prev.filter(file => file.key !== key));
-        alert('文件删除成功！');
+        showSuccess('删除成功', '文件删除成功！');
       } else {
-        alert(`删除失败: ${data.message}`);
+        showError('删除失败', data.message);
       }
     } catch (error) {
       console.error('删除失败:', error);
-      alert('删除失败，请检查网络连接');
+      showError('删除失败', '请检查网络连接');
     }
   };
 

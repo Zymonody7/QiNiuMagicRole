@@ -82,8 +82,8 @@ function CharacterManagementPage() {
 
   const handleCreateCharacter = async (characterData: Partial<Character>) => {
     try {
-      const newCharacter = await apiService.createCharacter(characterData);
-      setCharacters(prev => [...prev, newCharacter]);
+      // 直接使用传入的角色数据，因为CreateCharacterModal已经创建了角色
+      setCharacters(prev => [...prev, characterData as Character]);
       setShowCreateModal(false);
     } catch (error) {
       console.error('创建角色失败:', error);

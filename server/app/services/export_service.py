@@ -554,8 +554,8 @@ class ExportService:
                 # 截取到主音频长度
                 music_segment = music_segment[:len(audio)]
                 
-                # 降低背景音乐音量（-20dB）
-                music_segment = music_segment - 20
+                # 降低背景音乐音量（-10dB，比之前大一些）
+                music_segment = music_segment - 10
                 
                 # 混合音频
                 mixed_audio = audio.overlay(music_segment)

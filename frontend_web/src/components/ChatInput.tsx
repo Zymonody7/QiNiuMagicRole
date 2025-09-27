@@ -5,6 +5,7 @@ import { Send, Mic, MicOff, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useVoice } from '@/hooks/useVoice';
 import OCRUpload from './OCRUpload';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -28,6 +29,7 @@ export default function ChatInput({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const { isSupported: voiceSupported } = useVoice();
+  const { showError, showWarning } = useToastContext();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +48,7 @@ export default function ChatInput({
 
   const startVoiceRecording = useCallback(async () => {
     if (!voiceSupported) {
-      alert('您的浏览器不支持语音录制功能');
+      showWarning('浏览器不支持', '您的浏览器不支持语音录制功能');
       return;
     }
 
@@ -96,7 +98,7 @@ export default function ChatInput({
       setIsVoiceRecording(true);
     } catch (error) {
       console.error('无法访问麦克风:', error);
-      alert('无法访问麦克风，请检查权限设置');
+      showError('麦克风访问失败', '无法访问麦克风，请检查权限设置');
     }
   }, [voiceSupported, onVoiceInput]);
 

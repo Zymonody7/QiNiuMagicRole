@@ -14,6 +14,7 @@ import { apiService } from '@/services/apiService';
 import { ChatService } from '@/services/chatService';
 import { useAuth } from '@/contexts/AuthContext';
 import { withAuth } from '@/components/withAuth';
+import { useToastContext } from '@/contexts/ToastContext';
 
 function ChatPage() {
   const params = useParams();
@@ -30,6 +31,7 @@ function ChatPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [selectedBackgroundMusic, setSelectedBackgroundMusic] = useState<string>('');
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const { showSuccess, showError } = useToastContext();
 
   useEffect(() => {
     if (characterId) {
@@ -248,6 +250,12 @@ function ChatPage() {
   const handleExportText = async (format: 'word' | 'pdf') => {
     if (!character || messages.length === 0) return;
     
+    // 检查sessionId是否是真实的数据库ID（不是前端生成的假ID）
+    if (sessionId.startsWith('session_')) {
+      showError('无法导出', '请先与角色进行对话后再导出文本');
+      return;
+    }
+    
     setIsExporting(true);
     try {
       const blob = await apiService.exportText(sessionId, character.id, format, messages);
@@ -261,7 +269,7 @@ function ChatPage() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('导出文本失败:', error);
-      alert('导出失败，请稍后重试');
+      showError('导出失败', '请稍后重试');
     } finally {
       setIsExporting(false);
       setShowExportMenu(false);
@@ -270,6 +278,12 @@ function ChatPage() {
 
   const handleExportAudio = async () => {
     if (!character || messages.length === 0) return;
+    
+    // 检查sessionId是否是真实的数据库ID（不是前端生成的假ID）
+    if (sessionId.startsWith('session_')) {
+      showError('无法导出', '请先与角色进行对话后再导出音频');
+      return;
+    }
     
     setIsExporting(true);
     try {
@@ -284,7 +298,7 @@ function ChatPage() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('导出音频失败:', error);
-      alert('音频导出失败，请稍后重试');
+      showError('音频导出失败', '请稍后重试');
     } finally {
       setIsExporting(false);
       setShowExportMenu(false);

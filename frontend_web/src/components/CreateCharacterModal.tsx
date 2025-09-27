@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { X, Upload, Plus, X as XIcon } from 'lucide-react';
 import { apiService } from '@/services/apiService';
 import AudioRecorder from './AudioRecorder';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface CreateCharacterModalProps {
   onClose: () => void;
@@ -34,6 +35,7 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
   const [loading, setLoading] = useState(false);
   const [audioPreview, setAudioPreview] = useState<string | null>(null);
   const [asrProcessing, setAsrProcessing] = useState(false);
+  const { showSuccess, showError, showWarning } = useToastContext();
 
   const categories = [
     { id: 'literature', name: '文学' },
@@ -75,7 +77,7 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
       await onSubmit(createdCharacter);
     } catch (error) {
       console.error('创建角色失败:', error);
-      alert('创建角色失败，请重试');
+      showError('创建角色失败', '请重试');
     } finally {
       setLoading(false);
     }
@@ -114,13 +116,13 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
     if (file) {
       // 检查文件类型
       if (!file.type.startsWith('audio/')) {
-        alert('请选择音频文件');
+        showWarning('文件类型错误', '请选择音频文件');
         return;
       }
       
       // 检查文件大小 (限制为10MB)
       if (file.size > 10 * 1024 * 1024) {
-        alert('音频文件大小不能超过10MB');
+        showWarning('文件过大', '音频文件大小不能超过10MB');
         return;
       }
       
@@ -148,14 +150,14 @@ export default function CreateCharacterModal({ onClose, onSubmit }: CreateCharac
           referenceAudioText: result.transcribed_text 
         }));
         console.log('七牛云ASR转录成功:', result.transcribed_text);
-        alert('音频转录成功！已自动填充参考文本。');
+        showSuccess('音频转录成功', '已自动填充参考文本');
       } else {
         console.log('ASR转录失败:', result.message);
-        alert('音频转录失败，请手动输入参考文本。');
+        showError('音频转录失败', '请手动输入参考文本');
       }
     } catch (error) {
       console.error('ASR转录错误:', error);
-      alert('音频转录出错，请手动输入参考文本。');
+      showError('音频转录出错', '请手动输入参考文本');
     } finally {
       setAsrProcessing(false);
     }

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ChatService } from '@/services/chatService';
 import AvatarUpload from '@/components/AvatarUpload';
 import { withAuth } from '@/components/withAuth';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface CustomCharacter {
   id: string;
@@ -36,6 +37,7 @@ function CharacterConfigPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const { showSuccess, showError, showWarning } = useToastContext();
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const startRecording = async () => {
@@ -72,7 +74,7 @@ function CharacterConfigPage() {
       }, 1000);
     } catch (error) {
       console.error('无法访问麦克风:', error);
-      alert('无法访问麦克风，请检查权限设置');
+      showError('麦克风访问失败', '无法访问麦克风，请检查权限设置');
     }
   };
 
@@ -162,17 +164,17 @@ function CharacterConfigPage() {
 
   const handleSave = async () => {
     if (!character.name.trim() || !character.prompt.trim()) {
-      alert('请填写角色名称和提示词');
+      showWarning('信息不完整', '请填写角色名称和提示词');
       return;
     }
 
     if (!character.voiceData && !character.audioFile) {
-      alert('请录制或上传音频文件');
+      showWarning('音频缺失', '请录制或上传音频文件');
       return;
     }
 
     if (!character.avatar && !character.avatarFile) {
-      alert('请设置角色头像');
+      showWarning('头像缺失', '请设置角色头像');
       return;
     }
 
@@ -185,11 +187,11 @@ function CharacterConfigPage() {
         character.avatarFile
       );
       
-      alert(`角色配置保存成功！角色ID: ${savedCharacter.id}`);
+      showSuccess('保存成功', `角色配置保存成功！角色ID: ${savedCharacter.id}`);
       router.push('/');
     } catch (error) {
       console.error('保存失败:', error);
-      alert('保存失败，请重试');
+      showError('保存失败', '请重试');
     }
   };
 

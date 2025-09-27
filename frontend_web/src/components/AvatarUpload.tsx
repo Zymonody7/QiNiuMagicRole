@@ -4,6 +4,7 @@ import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Image, Camera, Trash2, User, Crop } from 'lucide-react';
 import AvatarCropper from './AvatarCropper';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface AvatarUploadProps {
   avatar?: string;
@@ -16,17 +17,18 @@ export default function AvatarUpload({ avatar, onAvatarChange, className = "" }:
   const [showCropper, setShowCropper] = useState(false);
   const [tempImageUrl, setTempImageUrl] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { showWarning } = useToastContext();
 
   const handleFileSelect = (file: File) => {
     // 验证图片文件
     if (!file.type.startsWith('image/')) {
-      alert('请选择图片文件');
+      showWarning('文件类型错误', '请选择图片文件');
       return;
     }
     
     // 验证文件大小 (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('图片文件大小不能超过5MB');
+      showWarning('文件过大', '图片文件大小不能超过5MB');
       return;
     }
     

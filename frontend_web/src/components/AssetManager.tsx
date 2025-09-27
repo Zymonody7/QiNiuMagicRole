@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Upload, Download, Trash2, FileText, Cloud, HardDrive, Folder, Image, Music, Video, File } from 'lucide-react';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface AssetInfo {
   key: string;
@@ -34,6 +35,7 @@ export default function AssetManager() {
   const [selectedAssetType, setSelectedAssetType] = useState<string>('avatars');
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { showSuccess, showError } = useToastContext();
   const [subfolder, setSubfolder] = useState('');
 
   // 获取存储信息
@@ -85,16 +87,16 @@ export default function AssetManager() {
 
       const data = await response.json();
       if (data.success) {
-        alert('资源上传成功！');
+        showSuccess('上传成功', '资源上传成功！');
         setSelectedFile(null);
         setSubfolder('');
         fetchAssets();
       } else {
-        alert(`上传失败: ${data.message}`);
+        showError('上传失败', data.message);
       }
     } catch (error) {
       console.error('上传失败:', error);
-      alert('上传失败，请检查网络连接');
+      showError('上传失败', '请检查网络连接');
     } finally {
       setLoading(false);
     }
@@ -111,14 +113,14 @@ export default function AssetManager() {
 
       const data = await response.json();
       if (data.success) {
-        alert('资源删除成功！');
+        showSuccess('删除成功', '资源删除成功！');
         fetchAssets();
       } else {
-        alert(`删除失败: ${data.message}`);
+        showError('删除失败', data.message);
       }
     } catch (error) {
       console.error('删除失败:', error);
-      alert('删除失败，请检查网络连接');
+      showError('删除失败', '请检查网络连接');
     }
   };
 

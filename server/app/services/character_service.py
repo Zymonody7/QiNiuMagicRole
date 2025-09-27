@@ -113,9 +113,35 @@ class CharacterService:
         if not character:
             return False
         
-        await self.db.delete(character)
-        await self.db.commit()
-        return True
+        try:
+            # 先删除与该角色相关的聊天会话和消息
+            from app.models.chat import ChatSession, ChatMessage
+            
+            # 删除聊天消息
+            messages_query = select(ChatMessage).join(ChatSession).where(ChatSession.character_id == character_id)
+            messages_result = await self.db.execute(messages_query)
+            messages = messages_result.scalars().all()
+            
+            for message in messages:
+                await self.db.delete(message)
+            
+            # 删除聊天会话
+            sessions_query = select(ChatSession).where(ChatSession.character_id == character_id)
+            sessions_result = await self.db.execute(sessions_query)
+            sessions = sessions_result.scalars().all()
+            
+            for session in sessions:
+                await self.db.delete(session)
+            
+            # 最后删除角色
+            await self.db.delete(character)
+            await self.db.commit()
+            return True
+            
+        except Exception as e:
+            await self.db.rollback()
+            print(f"删除角色失败: {e}")
+            return False
 
     async def get_popular_characters(self, limit: int = 10) -> List[Character]:
         """获取热门角色"""
