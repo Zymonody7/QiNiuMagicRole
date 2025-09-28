@@ -456,38 +456,6 @@ async def get_qiniu_asr_status(db: AsyncSession = Depends(get_db)):
             "message": "获取服务状态失败"
         }
 
-@router.post("/qiniu-asr-test")
-async def test_qiniu_asr(
-    audio_url: str = Form(...),
-    language: str = Form("zh"),
-    db: AsyncSession = Depends(get_db)
-):
-    """测试七牛云ASR服务"""
-    try:
-        if not qiniu_asr_service.is_enabled():
-            return {
-                "success": False,
-                "message": "七牛云ASR服务未启用",
-                "error": "请配置QINIU_API_KEY环境变量"
-            }
-        
-        # 调用七牛云ASR服务
-        transcribed_text = await qiniu_asr_service.speech_to_text(audio_url, language)
-        
-        return {
-            "success": True,
-            "transcribed_text": transcribed_text,
-            "language": language,
-            "audio_url": audio_url,
-            "message": "七牛云ASR测试成功"
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "七牛云ASR测试失败"
-        }
 
 @router.post("/text-process")
 async def process_text(

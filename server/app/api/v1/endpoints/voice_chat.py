@@ -5,10 +5,6 @@ from app.services.voice_chat_service import voice_chat_service
 
 router = APIRouter()
 
-@router.get("/test-websocket")
-async def test_websocket():
-    """测试WebSocket端点是否可访问"""
-    return {"message": "WebSocket端点可访问", "status": "ok"}
 
 @router.websocket("/ws/voice-chat")
 async def websocket_endpoint(websocket: WebSocket):
