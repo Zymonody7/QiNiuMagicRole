@@ -114,6 +114,8 @@ cd server && python run.py
 
 # 前端
 cd frontend_web && pnpm dev
+# GPT-SoVITS
+cd llm_server && python api.py
 ```
 
 ### 项目结构
