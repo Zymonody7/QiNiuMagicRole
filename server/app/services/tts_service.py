@@ -149,19 +149,36 @@ class TTSService:
                 "if_sr": False
             }
             
+            print(f"准备调用LLM服务器TTS: {self.llm_server_url}")
+            print(f"请求参数: {request_data}")
             logger.info(f"调用LLM服务器TTS: {self.llm_server_url}")
             logger.info(f"请求参数: {request_data}")
             
             # 发送请求到llm_server - 使用正确的端点 /
+            print(f"发送POST请求到: {self.llm_server_url}/")
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
                     f"{self.llm_server_url}/",
                     json=request_data
                 )
+                print(f"LLM服务器响应状态: {response.status_code}")
                 
                 if response.status_code == 200:
                     # 保存生成的音频文件
                     audio_data = response.content
+                    print(f"llm_server返回的音频数据大小: {len(audio_data)} 字节")
+                    if len(audio_data) == 0:
+                        print("警告：llm_server返回的音频数据为空")
+                    
+                    # 检查音频数据的前几个字节，确认是否为有效的音频文件
+                    if len(audio_data) > 0:
+                        print(f"音频数据前16字节: {audio_data[:16].hex()}")
+                        # WAV文件应该以"RIFF"开头
+                        if audio_data[:4] == b'RIFF':
+                            print("音频数据格式正确：WAV文件")
+                        else:
+                            print("警告：音频数据格式可能不正确")
+                    
                     return await self._save_generated_audio(audio_data, "wav")
                 else:
                     logger.error(f"LLM服务器返回错误状态: {response.status_code}")
@@ -176,14 +193,16 @@ class TTSService:
         except Exception as e:
             raise VoiceProcessingError(f"调用LLM服务器失败: {str(e)}")
         finally:
-            # 清理临时文件
+            # 保留临时文件用于调试，不自动删除
             if temp_file_path and os.path.exists(temp_file_path):
-                try:
-                    from app.services.file_download_service import file_download_service
-                    file_download_service.cleanup_temp_file(temp_file_path)
-                    logger.info(f"临时文件已清理: {temp_file_path}")
-                except Exception as cleanup_error:
-                    logger.warning(f"清理临时文件失败: {cleanup_error}")
+                logger.info(f"参考音频文件保留用于调试: {temp_file_path}")
+                # 注释掉自动删除，保留文件用于检查
+                # try:
+                #     from app.services.file_download_service import file_download_service
+                #     file_download_service.cleanup_temp_file(temp_file_path)
+                #     logger.info(f"临时文件已清理: {temp_file_path}")
+                # except Exception as cleanup_error:
+                #     logger.warning(f"清理临时文件失败: {cleanup_error}")
     
     async def _generate_default_voice(self, text: str, language: str) -> str:
         """生成默认语音（降级方案）"""
@@ -246,7 +265,11 @@ class TTSService:
         """测试LLM服务器连接"""
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(f"{self.llm_server_url}/health")
-                return response.status_code == 200
-        except:
+                # 尝试访问根端点，即使返回错误也说明服务器在运行
+                response = await client.get(f"{self.llm_server_url}/")
+                print(f"llm_server连接测试 - 状态码: {response.status_code}")
+                # 只要不是连接错误，就认为服务器可用
+                return True
+        except Exception as e:
+            print(f"llm_server连接测试失败: {e}")
             return False

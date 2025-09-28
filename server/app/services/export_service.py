@@ -474,6 +474,19 @@ class ExportService:
                     # 加载音频
                     audio = AudioSegment.from_file(temp_file_path)
                     print(f"AI音频加载成功，时长: {len(audio)}ms")
+                    
+                    # 检查音频是否有声音
+                    if len(audio) > 0:
+                        # 获取音频的RMS（均方根）值，用于判断是否有声音
+                        rms = audio.rms
+                        print(f"音频RMS值: {rms}")
+                        if rms < 100:  # 如果RMS值很小，可能是静音
+                            print("警告：音频可能为静音或音量过低")
+                        else:
+                            print("音频音量正常")
+                    else:
+                        print("警告：音频时长为0")
+                    
                     return audio
                 finally:
                     # 确保删除临时文件
