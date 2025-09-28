@@ -4,12 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Volume2, VolumeX, Settings, RotateCcw, Phone, MessageSquare, Download, FileText, Music } from 'lucide-react';
-import RealtimeVoiceChat from '@/components/RealtimeVoiceChat';
 import CharacterCard from '@/components/CharacterCard';
 import ChatMessage from '@/components/ChatMessage';
 import ChatInput from '@/components/ChatInput';
 import Navigation from '@/components/Navigation';
 import PodcastExportModal, { PodcastConfig } from '@/components/PodcastExportModal';
+import AliyunAICallUI from '@/components/AliyunAICallUI';
 import { Character, ChatMessage as ChatMessageType, ChatSession } from '@/types/character';
 import { apiService } from '@/services/apiService';
 import { ChatService } from '@/services/chatService';
@@ -28,12 +28,33 @@ function ChatPage() {
   const [sessionId, setSessionId] = useState<string>('');
   const [showRealtimeVoiceChat, setShowRealtimeVoiceChat] = useState(false);
   const [autoPlayAudio, setAutoPlayAudio] = useState(true);
+  const [isAliyunCallActive, setIsAliyunCallActive] = useState(false);
+  const [aliyunCallError, setAliyunCallError] = useState<string | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [selectedBackgroundMusic, setSelectedBackgroundMusic] = useState<string>('');
   const [showPodcastModal, setShowPodcastModal] = useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const { showSuccess, showError } = useToastContext();
+
+  // 阿里云语音通话处理函数
+  const handleAliyunCallBegin = () => {
+    console.log('阿里云语音通话开始');
+    setIsAliyunCallActive(true);
+    setAliyunCallError(null);
+  };
+
+  const handleAliyunCallEnd = () => {
+    console.log('阿里云语音通话结束');
+    setIsAliyunCallActive(false);
+  };
+
+  const handleAliyunCallError = (errorMsg: string) => {
+    console.error('阿里云语音通话错误:', errorMsg);
+    setAliyunCallError(errorMsg);
+    setIsAliyunCallActive(false);
+    showError('语音通话错误', errorMsg);
+  };
 
   useEffect(() => {
     if (characterId) {
@@ -383,8 +404,12 @@ function ChatPage() {
               
                 <button
                   onClick={() => setShowRealtimeVoiceChat(true)}
-                  className="p-2 rounded-lg transition-colors hover:bg-green-100 text-green-600"
-                  title="实时语音对话"
+                  className={`p-2 rounded-lg transition-colors ${
+                    isAliyunCallActive 
+                      ? 'bg-red-100 text-red-600' 
+                      : 'hover:bg-green-100 text-green-600'
+                  }`}
+                  title={isAliyunCallActive ? '结束语音通话' : '开始语音通话'}
                 >
                   <Phone className="w-5 h-5" />
                 </button>
@@ -520,12 +545,71 @@ function ChatPage() {
         </div>
       </div>
 
-      {/* 实时语音聊天模态框 */}
+      {/* 阿里云语音通话模态框 */}
       {showRealtimeVoiceChat && character && (
-        <RealtimeVoiceChat
-          character={character}
-          onClose={() => setShowRealtimeVoiceChat(false)}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[80vh] flex flex-col">
+            {/* 模态框头部 */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+                  <Phone className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">与 {character.name} 语音通话</h3>
+                  <p className="text-sm text-gray-500">
+                    {isAliyunCallActive ? '通话中...' : '准备开始通话'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowRealtimeVoiceChat(false);
+                  setIsAliyunCallActive(false);
+                }}
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 错误信息 */}
+            {aliyunCallError && (
+              <div className="mx-4 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-700 text-sm">{aliyunCallError}</p>
+              </div>
+            )}
+
+            {/* 阿里云AICall UI */}
+            <div className="flex-1 p-4">
+              <AliyunAICallUI
+                userId={`user_${character.id}_${Date.now()}`}
+                shareToken={process.env.NEXT_PUBLIC_ALIYUN_SHARED_TOKEN || ''}
+                onCallBegin={handleAliyunCallBegin}
+                onCallEnd={handleAliyunCallEnd}
+                onError={handleAliyunCallError}
+              />
+            </div>
+
+            {/* 模态框底部 */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  {process.env.NEXT_PUBLIC_ALIYUN_SHARED_TOKEN ? '已配置阿里云语音服务' : '请配置NEXT_PUBLIC_ALIYUN_SHARED_TOKEN环境变量'}
+                </div>
+                <button
+                  onClick={() => {
+                    setShowRealtimeVoiceChat(false);
+                    setIsAliyunCallActive(false);
+                  }}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       
       {/* 播客配置弹窗 */}

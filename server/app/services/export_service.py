@@ -399,11 +399,21 @@ class ExportService:
                             # 生成新的音频
                             audio_segment = await self._generate_tts_audio(content, character, is_user)
                             if audio_segment:
+                                # 对用户音频使用增强的标准化
+                                if is_user:
+                                    audio_segment = self._normalize_audio_with_gain(audio_segment, target_db=-18.0)
+                                else:
+                                    audio_segment = self._normalize_audio(audio_segment)
                                 audio_segments.append(audio_segment)
                     else:
                         # 生成TTS音频
                         audio_segment = await self._generate_tts_audio(content, character, is_user)
                         if audio_segment:
+                            # 对用户音频使用增强的标准化
+                            if is_user:
+                                audio_segment = self._normalize_audio_with_gain(audio_segment, target_db=-18.0)
+                            else:
+                                audio_segment = self._normalize_audio(audio_segment)
                             audio_segments.append(audio_segment)
                     
                     # 添加消息间隔
@@ -417,8 +427,8 @@ class ExportService:
                 
                 print(f"开始拼接 {len(audio_segments)} 个音频片段")
                 
-                # 拼接所有音频
-                final_audio = self._concatenate_audios(audio_segments)
+                # 拼接所有音频，使用音量平衡
+                final_audio = self._concatenate_audios_with_volume_balance(audio_segments)
                 
                 # 添加播客结尾
                 outro_audio = await self._generate_podcast_outro(character)
@@ -533,6 +543,48 @@ class ExportService:
         
         return result
     
+    def _concatenate_audios_with_volume_balance(self, audio_segments: List[AudioSegment]) -> AudioSegment:
+        """拼接音频片段并平衡音量"""
+        if not audio_segments:
+            raise Exception("没有音频片段可拼接")
+        
+        # 计算所有音频片段的平均音量
+        total_db = 0
+        valid_segments = []
+        
+        for segment in audio_segments:
+            if segment.dBFS != float('-inf'):  # 跳过静音片段
+                total_db += segment.dBFS
+                valid_segments.append(segment)
+        
+        if not valid_segments:
+            return audio_segments[0] if audio_segments else AudioSegment.silent(duration=1000)
+        
+        # 计算目标音量（平均音量）
+        target_db = total_db / len(valid_segments)
+        print(f"音频拼接 - 目标音量: {target_db:.1f}dB")
+        
+        # 添加短暂静音分隔
+        silence = AudioSegment.silent(duration=500)  # 0.5秒静音
+        
+        result = None
+        for i, segment in enumerate(audio_segments):
+            # 调整每个片段的音量到目标音量
+            if segment.dBFS != float('-inf'):
+                volume_diff = target_db - segment.dBFS
+                # 限制音量调整范围，避免过度调整
+                volume_diff = max(-10, min(10, volume_diff))
+                if abs(volume_diff) > 1:  # 只调整差异较大的音频
+                    segment = segment + volume_diff
+                    print(f"音频片段 {i+1} 音量调整: {volume_diff:.1f}dB")
+            
+            if result is None:
+                result = segment
+            else:
+                result += silence + segment
+        
+        return result
+    
     async def _add_background_music(self, audio: AudioSegment, background_music: Optional[str] = None) -> AudioSegment:
         """添加背景音乐（可选功能）"""
         try:
@@ -600,6 +652,30 @@ class ExportService:
     def _normalize_audio(self, audio: AudioSegment) -> AudioSegment:
         """标准化音频"""
         try:
+            # 标准化音量
+            normalized = normalize(audio)
+            # 确保音频长度至少500ms
+            if len(normalized) < 500:
+                normalized = normalized + AudioSegment.silent(duration=500 - len(normalized))
+            return normalized
+        except Exception as e:
+            print(f"音频标准化失败: {e}")
+            return audio
+    
+    def _normalize_audio_with_gain(self, audio: AudioSegment, target_db: float = -20.0) -> AudioSegment:
+        """标准化音频并调整到目标音量"""
+        try:
+            # 计算当前音频的RMS音量
+            current_db = audio.dBFS
+            
+            # 如果音频太安静，增加音量
+            if current_db < target_db - 10:  # 如果比目标音量低10dB以上
+                gain_db = target_db - current_db
+                # 限制最大增益为20dB，避免爆音
+                gain_db = min(gain_db, 20.0)
+                audio = audio + gain_db
+                print(f"音频音量调整: {current_db:.1f}dB -> {audio.dBFS:.1f}dB (增益: {gain_db:.1f}dB)")
+            
             # 标准化音量
             normalized = normalize(audio)
             # 确保音频长度至少500ms

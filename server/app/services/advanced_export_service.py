@@ -66,6 +66,8 @@ class AdvancedExportService(ExportService):
                             character
                         )
                         if user_audio:
+                            # 对用户音频使用增强的标准化
+                            user_audio = self._normalize_audio_with_gain(user_audio, target_db=-18.0)
                             audio_segments.append(user_audio)
                     else:
                         # AI消息 - 优先使用现有音频
@@ -82,6 +84,8 @@ class AdvancedExportService(ExportService):
                         # 生成新的AI音频
                         ai_audio = await self._generate_ai_audio(content, character)
                         if ai_audio:
+                            # 对AI音频也使用标准化处理
+                            ai_audio = self._normalize_audio(ai_audio)
                             audio_segments.append(ai_audio)
                     
                     # 添加消息间隔
@@ -95,8 +99,8 @@ class AdvancedExportService(ExportService):
                 
                 print(f"开始拼接 {len(audio_segments)} 个音频片段")
                 
-                # 拼接所有音频
-                final_audio = self._concatenate_audios(audio_segments)
+                # 拼接所有音频，使用音量平衡
+                final_audio = self._concatenate_audios_with_volume_balance(audio_segments)
                 
                 # 添加播客结尾
                 outro_audio = await self._generate_custom_outro(outro_text, user_voice_type, user_voice_file)

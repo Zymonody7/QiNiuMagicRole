@@ -55,7 +55,7 @@ export default function AuthPage() {
                 <div className="w-12 h-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center">
                   <Sparkles className="w-7 h-7 text-white" />
                 </div>
-                <h1 className="text-3xl font-bold gradient-text">七牛幻角</h1>
+                <h1 className="text-3xl font-bold gradient-text">奇牛幻角</h1>
               </div>
               
               <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
